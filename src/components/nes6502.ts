@@ -505,7 +505,7 @@ export class nes6502 {
     }
 
     // Operations
-    ADC() {
+    ADC() { // Add with Carry
         this.microCodeStack.push(() => {
             const m = this.a;
             const n = this._bus.data;
@@ -520,7 +520,7 @@ export class nes6502 {
             this.setFlag(Flags.Z, result & 0x80);
         })
     }
-    AND() {
+    AND() { // Bitwise AND with Acc
         this.microCodeStack.push(() => {
             this.a &= this._bus.data;
 
@@ -528,7 +528,7 @@ export class nes6502 {
             this.setFlag(Flags.Z, this.a ? 0 : 1);
         });
     }
-    ASL() {
+    ASL() { // Arithmetic shift(1) left
         let result = 0;
         const p = this;
         function setFlags (result: number) {
@@ -551,8 +551,12 @@ export class nes6502 {
             });
         }
     }
-    BIT() {
-
+    BIT() { // test bits
+        this.microCodeStack.push(() => {
+            this.setFlag(Flags.N, this._bus.data & 0x80); // test bit 7
+            this.setFlag(Flags.Z, (this._bus.data & this.a) ? 1 : 0);
+            this.setFlag(Flags.C, this._bus.data & 0x100); // test bit 8
+        })
     }
     BRK() {}
     ORA() {}
