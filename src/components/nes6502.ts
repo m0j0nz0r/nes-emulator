@@ -529,20 +529,30 @@ export class nes6502 {
         });
     }
     ASL() {
-        this.microCodeStack.push(() => {
-            let result = 0;
-            if (this._fetch?.addressingMode === this.ACC) {
-                this.microCodeStack.push(() => {
-                    result = this.a << 1;
-                    this.a = result & 0xff;
-                });
-            } else {
-                result = this._bus.data << 1;
-                this.microCodeStack.push(() => this._bus.write(this._bus.addr, this._bus.data));
-                this.microCodeStack.push(() => this._bus.write(this._bus.addr, result && 0xff));
-            }
+        let result = 0;
+        const p = this;
+        function setFlags (result: number) {
+            p.setFlag(Flags.N, result & 0x80); // test bit 7
+            p.setFlag(Flags.Z, result ? 1 : 0);
+            p.setFlag(Flags.C, result & 0x100); // test bit 8
+        }
+        if (this._fetch?.addressingMode === this.ACC) {
+            this.microCodeStack.push(() => {
+                result = this.a << 1;
+                this.a = result & 0xff;
+                setFlags(result);
+            });
+        } else {
+            result = this._bus.data << 1;
+            this.microCodeStack.push(() => this._bus.write(this._bus.addr, this._bus.data));
+            this.microCodeStack.push(() => {
+                this._bus.write(this._bus.addr, result && 0xff);
+                setFlags(result);
+            });
+        }
+    }
+    BIT() {
 
-        });
     }
     BRK() {}
     ORA() {}
@@ -555,7 +565,6 @@ export class nes6502 {
     CLC() {}
     JSR() {}
     RLA() {}
-    BIT() {}
     ROL() {}
     PLP() {}
     SEC() {}
