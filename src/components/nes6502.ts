@@ -1,4 +1,3 @@
-import { isUndefined } from 'util';
 import { Bus, ReadFlagState } from './bus';
 enum Flags {
     C = (1 << 0), // carry bit
@@ -21,6 +20,7 @@ export class nes6502 {
     }
     private _bus: Bus;
     private _t: number = 0; // temporary private register to store bytes between cycles
+    private _fetch?: Instruction;
 
 
     clockSpeed = 21441960; // hz
@@ -377,24 +377,33 @@ export class nes6502 {
         this.ACC();
     }
     ACC() { // Accumulator          A
-        this.microCodeStack.push(() => this._bus.data = this.a);
+        this.microCodeStack.push(() => {
+            this._bus.data = this.a;
+            this.pc++;
+        });
     }
     IMM() { // Immediate            #v
         // fetch value
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this._bus.read(this.pc++);
+            this.pc++;
+        });
     }
     ZP0() { // Zero Page            d
         // fetch address
         this.microCodeStack.push(() => this._bus.read(this.pc++));
         // fetch value from address
-        this.microCodeStack.push(() => this._bus.read(this._bus.data & 0x00FF));
+        this.microCodeStack.push(() => {
+            this._bus.read(this._bus.data & 0xff);
+            this.pc++;
+        });
     }
     private _ZPI(reg: number) { // Zero Page Indexed reg  d,reg     val = PEEK((arg + reg) % 256)
         this.microCodeStack.push(() => this._bus.read(this.pc++));
         // TODO: check that this is how the 6502 behaves, previous supposition was that we could store the result
         // of this operation in the address bus.
         this.microCodeStack.push(() => this._t = this._bus.data + reg);
-        this.microCodeStack.push(() => this._bus.read(this._t & 0x00ff));
+        this.microCodeStack.push(() => this._bus.read(this._t & 0xff));
     }
     ZPX() {
         this._ZPI(this.x);
@@ -429,7 +438,8 @@ export class nes6502 {
         this.microCodeStack.push(() => {
             this._t = this._bus.data;
             // when fetching from an address at the edge of a page, the 6502 will fetch the hi byte from the beggining of the same page
-            this._bus.read((this._bus.addr & 0xff00) + ((this._bus.addr + 1) & 0x00ff));
+            this._bus.read((this._bus.addr & 0xff00) + ((this._bus.addr + 1) & 0xff));
+            this.pc++;
         });
     }
     private _ABI(reg: number) { // Absolute Indexed reg   a,reg     val = PEEK(arg + reg)
@@ -442,13 +452,14 @@ export class nes6502 {
             const lo = this._t + reg;
             const hi = this._bus.data << 8;
             this._bus.read(
-                hi + (lo & 0x00ff)
+                hi + (lo & 0xff)
             );
 
             // on page change, add extra cycle to update the hi byte in the bus.
-            if (lo > 0x00ff) {
+            if (lo > 0xff) {
                 this.microCodeStack.push(() => this._bus.read(hi + lo))
             }
+            this.pc++;
         });
     }
     ABX() { // Absolute Indexed X   a,x     val = PEEK(arg + X)
@@ -461,16 +472,19 @@ export class nes6502 {
     IZX() { // Indirect Indexed X   (d,x)   val = PEEK(PEEK((arg + X) % 256) + PEEK((arg + X + 1) % 256) * 256)
         this.microCodeStack.push(() => this._bus.read(this.pc++));
         // the 6502 first reads from arg on page 0, apparently using the address bus to store the value before adding the x register.
-        this.microCodeStack.push(() => this._bus.read(this._bus.data & 0x00ff));
+        this.microCodeStack.push(() => this._bus.read(this._bus.data & 0xff));
         this.microCodeStack.push(() => {
-            this._bus.read((this._bus.addr + this.x) & 0x00ff);
+            this._bus.read((this._bus.addr + this.x) & 0xff);
             this.pc++;
         });
         this.microCodeStack.push(() => {
             this._t = this._bus.data;
-            this._bus.read((this._bus.addr + 1) & 0x00ff);
+            this._bus.read((this._bus.addr + 1) & 0xff);
         });
-        this.microCodeStack.push(() => this._bus.read((this._bus.data << 8) + this._t));
+        this.microCodeStack.push(() => {
+            this._bus.read((this._bus.data << 8) + this._t);
+            this.pc++;
+        });
     }
     IZY() { // Indirect Indexed Y   (d),y   val = PEEK(PEEK(arg) + PEEK((arg + 1) % 256) * 256 + Y)
         this.microCodeStack.push(() => this._bus.read(this.pc++));
@@ -481,11 +495,12 @@ export class nes6502 {
         this.microCodeStack.push(() => this._bus.read(this._t + (this._bus.data << 8)));
         this.microCodeStack.push(() => {
             const hi = this._bus.addr & 0xff00;
-            const lo = (this._bus.addr & 0x00ff) + this.y;
-            this._bus.read(hi  + (lo & 0x00ff));
-            if (lo > 0x00ff) {
+            const lo = (this._bus.addr & 0xff) + this.y;
+            this._bus.read(hi  + (lo & 0xff));
+            if (lo > 0xff) {
                 this.microCodeStack.push(() => this._bus.read(hi + lo));
             }
+            this.pc++;
         });
     }
 
@@ -495,9 +510,9 @@ export class nes6502 {
             const m = this.a;
             const n = this._bus.data;
             const result = m + n + this.getFlag(Flags.C);
-            this.a = result & 0x00ff;
+            this.a = result & 0xff;
 
-            this.setFlag(Flags.C, result > 0x00ff ? 1 : 0);
+            this.setFlag(Flags.C, result > 0xff ? 1 : 0);
             this.setFlag(Flags.Z, result === 0 ? 1 : 0);
 
             // formula taken from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
@@ -505,13 +520,35 @@ export class nes6502 {
             this.setFlag(Flags.Z, result & 0x80);
         })
     }
-    AND() {}
+    AND() {
+        this.microCodeStack.push(() => {
+            this.a &= this._bus.data;
+
+            this.setFlag(Flags.N, this.a & 0x80);
+            this.setFlag(Flags.Z, this.a ? 0 : 1);
+        });
+    }
+    ASL() {
+        this.microCodeStack.push(() => {
+            let result = 0;
+            if (this._fetch?.addressingMode === this.ACC) {
+                this.microCodeStack.push(() => {
+                    result = this.a << 1;
+                    this.a = result & 0xff;
+                });
+            } else {
+                result = this._bus.data << 1;
+                this.microCodeStack.push(() => this._bus.write(this._bus.addr, this._bus.data));
+                this.microCodeStack.push(() => this._bus.write(this._bus.addr, result && 0xff));
+            }
+
+        });
+    }
     BRK() {}
     ORA() {}
     STP() {}
     SLO() {}
     NOP() {}
-    ASL() {}
     PHP() {}
     ANC() {}
     BPL() {}
@@ -592,9 +629,9 @@ export class nes6502 {
             // we check for falsy, although this should never happen.
             microCode && microCode();
         } else {
-            const op = this.opCodeLookup[this._bus.data];
-            op.addressingMode();
-            op.operation();
+            this._fetch = this.opCodeLookup[this._bus.data];
+            this._fetch.addressingMode();
+            this._fetch.operation();
         }
     }
 
