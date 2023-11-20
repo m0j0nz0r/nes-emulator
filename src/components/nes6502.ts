@@ -490,6 +490,22 @@ export class nes6502 {
     }
 
     // Operations
+    ADC() {
+        this.microCodeStack.push(() => {
+            const m = this.a;
+            const n = this._bus.data;
+            const result = m + n + this.getFlag(Flags.C);
+            this.a = result & 0x00ff;
+
+            this.setFlag(Flags.C, result > 0x00ff ? 1 : 0);
+            this.setFlag(Flags.Z, result === 0 ? 1 : 0);
+
+            // formula taken from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
+            this.setFlag(Flags.V, (m ^ result) & (n ^result) & 0x80);
+            this.setFlag(Flags.Z, result & 0x80);
+        })
+    }
+    AND() {}
     BRK() {}
     ORA() {}
     STP() {}
@@ -501,7 +517,6 @@ export class nes6502 {
     BPL() {}
     CLC() {}
     JSR() {}
-    AND() {}
     RLA() {}
     BIT() {}
     ROL() {}
@@ -517,7 +532,6 @@ export class nes6502 {
     BVC() {}
     CLI() {}
     RTS() {}
-    ADC() {}
     RRA() {}
     ROR() {}
     ARR() {}
@@ -584,10 +598,10 @@ export class nes6502 {
         }
     }
 
-    public getFlag(flag: Flags): boolean {
-        return (this.status & flag) != 0;
+    public getFlag(flag: Flags): number {
+        return (this.status & flag) != 0 ? 1 : 0;
     }
-    public setFlag(flag: Flags, value: boolean) {
+    public setFlag(flag: Flags, value: number) {
         if (value) {
             this.status |= flag; // set bit
         } else {
