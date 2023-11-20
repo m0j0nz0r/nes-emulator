@@ -17,6 +17,7 @@ interface Instruction {
 export class nes6502 {
     constructor (bus: Bus) {
         this._bus = bus;
+        this.setFlag(Flags.U, 1); // U is unused but always set.
     }
     private _bus: Bus;
     private _t: number = 0; // temporary private register to store bytes between cycles
@@ -98,7 +99,7 @@ export class nes6502 {
         { name: 'RLA', operation: this.RLA, addressingMode: this.ABS}, // 2F
         
         // 30
-        { name: 'BMI', operation: this.BIT, addressingMode: this.ZP0}, // 30
+        { name: 'BMI', operation: this.BMI, addressingMode: this.ZP0}, // 30
         { name: 'AND', operation: this.AND, addressingMode: this.IZY}, // 31
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 32
         { name: 'RLA', operation: this.RLA, addressingMode: this.IZY}, // 33
@@ -558,6 +559,53 @@ export class nes6502 {
             this.setFlag(Flags.C, this._bus.data & 0x100); // test bit 8
         })
     }
+    BRA(shouldBranch: boolean) { // Generic branch
+        this.microCodeStack.push(() => {
+            if (shouldBranch) {
+                const hi = this.pc & 0xff00;
+                const lo = (this.pc & 0xff) + this._bus.data;
+
+                // +1 cycle if branch taken
+                this.microCodeStack.push(() => this.pc = hi + (lo & 0xff));
+                // +1 cycle if branch crosses page boundary
+                if (lo > 0xff) {
+                    this.microCodeStack.push(() => this.pc = hi + lo);
+                }
+            }
+        })
+    }
+    BPL() { // Branch on plus (N = 0)
+        this.BRA(this.getFlag(Flags.N) === 0);
+    }
+    BMI() { // Branch on minus (N = 1)
+        this.BRA(this.getFlag(Flags.N) === 1);
+    }
+    BVC() { // Branch on overfow clear (V = 0)
+        if (this.getFlag(Flags.C) === 0) {
+            const hi = this.pc & 0xff00;
+            const lo = (this.pc & 0xff) + this._bus.data;
+
+            this.microCodeStack.push(() => this.pc = hi + (lo & 0xff));
+            this.microCodeStack.push(() => this.pc = hi + lo);
+            // BVC always takes 3 cycles if branch is taken.
+        }
+}
+    BVS() { // Branch on overflow set (V = 1)
+        this.BRA(this.getFlag(Flags.V) === 1);
+    }
+    BCC() { // Branch on carry clear (C = 0)
+        this.BRA(this.getFlag(Flags.C) === 0);
+    }
+    BCS() { // Branch on carry set (C = 1)
+        this.BRA(this.getFlag(Flags.C) === 1);
+    }
+    BNE() { // Branch on not equal (Z = 0)
+        this.BRA(this.getFlag(Flags.Z) === 0);
+    }
+    BEQ() { // Branch on equal (Z = 1)
+        this.BRA(this.getFlag(Flags.Z) === 1);
+    }
+
     BRK() {}
     ORA() {}
     STP() {}
@@ -565,7 +613,6 @@ export class nes6502 {
     NOP() {}
     PHP() {}
     ANC() {}
-    BPL() {}
     CLC() {}
     JSR() {}
     RLA() {}
@@ -579,14 +626,12 @@ export class nes6502 {
     PHA() {}
     ALR() {}
     JMP() {}
-    BVC() {}
     CLI() {}
     RTS() {}
     RRA() {}
     ROR() {}
     ARR() {}
     PLA() {}
-    BVS() {}
     SEI() {}
     STA() {}
     SAX() {}
@@ -595,7 +640,6 @@ export class nes6502 {
     DEY() {}
     TXA() {}
     XAA() {}
-    BCC() {}
     AHX() {}
     TYA() {}
     TXS() {}
@@ -608,7 +652,6 @@ export class nes6502 {
     LAX() {}
     TAY() {}
     TAX() {}
-    BCS() {}
     CLV() {}
     TSX() {}
     LAS() {}
@@ -620,14 +663,12 @@ export class nes6502 {
     DEX() {}
     AXS() {}
     SCP() {}
-    BNE() {}
     CLD() {}
     CPX() {}
     SBC() {}
     ISC() {}
     INC() {}
     INX() {}
-    BEQ() {}
     SED() {}
 
     public clock() {
