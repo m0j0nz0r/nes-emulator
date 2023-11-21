@@ -1,6 +1,6 @@
 export enum ReadFlagState {
-    read = 0,
-    write = 1
+    read = 1,
+    write = 0
 }
 
 export class Bus {

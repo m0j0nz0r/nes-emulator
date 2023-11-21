@@ -29,7 +29,7 @@ export class nes6502 {
     a: number = 0; // accumulator register
     x: number = 0; // X register
     y: number = 0; // Y register
-    stackPointer: number = 0;
+    stackPointer: number = 0xfd;
     pc: number = 0; // program counter
     status: number = 0; // status register
     microCodeStack: Function[] = []; // currently executing micro code
@@ -513,8 +513,8 @@ export class nes6502 {
             const result = m + n + this.getFlag(Flags.C);
             this.a = result & 0xff;
 
-            this.setFlag(Flags.C, result > 0xff ? 1 : 0);
-            this.setFlag(Flags.Z, result === 0 ? 1 : 0);
+            this.setFlag(Flags.C, result > 0xff);
+            this.setFlag(Flags.Z, !result);
 
             // formula taken from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
             this.setFlag(Flags.V, (m ^ result) & (n ^result) & 0x80);
@@ -526,7 +526,7 @@ export class nes6502 {
             this.a &= this._bus.data;
 
             this.setFlag(Flags.N, this.a & 0x80);
-            this.setFlag(Flags.Z, this.a ? 0 : 1);
+            this.setFlag(Flags.Z, !this.a);
         });
     }
     ASL() { // Arithmetic shift(1) left
@@ -534,7 +534,7 @@ export class nes6502 {
         const p = this;
         function setFlags (result: number) {
             p.setFlag(Flags.N, result & 0x80); // test bit 7
-            p.setFlag(Flags.Z, result ? 1 : 0);
+            p.setFlag(Flags.Z, !result);
             p.setFlag(Flags.C, result & 0x100); // test bit 8
         }
         if (this._fetch?.addressingMode === this.ACC) {
@@ -550,12 +550,13 @@ export class nes6502 {
                 this._bus.write(this._bus.addr, result && 0xff);
                 setFlags(result);
             });
+            this.microCodeStack.push(() => {}); // allow the result to be saved before fetching the next instruction.
         }
     }
     BIT() { // test bits
         this.microCodeStack.push(() => {
             this.setFlag(Flags.N, this._bus.data & 0x80); // test bit 7
-            this.setFlag(Flags.Z, (this._bus.data & this.a) ? 1 : 0);
+            this.setFlag(Flags.Z, !(this._bus.data & this.a));
             this.setFlag(Flags.C, this._bus.data & 0x100); // test bit 8
         })
     }
@@ -606,33 +607,139 @@ export class nes6502 {
         this.BRA(this.getFlag(Flags.Z) === 1);
     }
 
-    BRK() {}
+    BRK() { // BreaK
+        /*
+        
+        #  address R/W description
+       --- ------- --- -----------------------------------------------
+        1    PC     R  fetch opcode, increment PC
+        2    PC     R  read next instruction byte (and throw it away),
+                       increment PC
+        3  $0100,S  W  push PCH on stack, decrement S
+        4  $0100,S  W  push PCL on stack, decrement S
+        5  $0100,S  W  push P on stack (with B flag set), decrement S
+        6   $FFFE   R  fetch PCL
+        7   $FFFF   R  fetch PCH
+        */
+       
+        // first cycle is done by clock.
+        // second cycle done by addr mode.
+        this.microCodeStack.push(() => {
+            this._bus.write(this.stackPointer, this.pc >> 8);
+            this.stackPointer--;
+        });
+        this.microCodeStack.push(() => {
+            this._bus.write(this.stackPointer, this.pc & 0xff);
+            this.stackPointer--;
+        });
+        this.microCodeStack.push(() => {
+            this._bus.write(this.stackPointer, this.status);
+            this.stackPointer--;
+            this.setFlag(Flags.B, 1);
+        });
+        this.microCodeStack.push(() => {
+            this._bus.read(0xfffe);
+        });
+        this.microCodeStack.push(() => {
+            this.pc = this._bus.data
+            this._bus.read(0xffff);
+        });
+        this.microCodeStack.push(() => {
+            this.pc |= this._bus.data;
+        });
+    }
+    CPA(reg: number) { // generic compare
+        this.microCodeStack.push(() => {
+            const m = reg;
+            const n = this._bus.data ^0xff;
+            const result = m + n + this.getFlag(Flags.C);
+            this.setFlag(Flags.N, 1);
+            this.setFlag(Flags.Z, (result & 0xff));
+            this.setFlag(Flags.C, result & 0xff00);
+        });
+    }
+    CMP() { // compare A
+        this.CPA(this.a);
+    }
+    CPX() { // compare X
+        this.CPA(this.x);
+    }
+    CPY() { // compare Y
+        this.CPA(this.y);
+    }
+    DEC() { // decrement memory
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this._bus.data);
+        });
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this._bus.data--);
+            this.setFlag(Flags.Z, !this._bus.data);
+            this.setFlag(Flags.N, this._bus.data & 0x80);
+        });
+        this.microCodeStack.push(() => {}); // allow the cpu to fetch the next instruction.
+    }
+    INC() { // Increment memory
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this._bus.data);
+        });
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this._bus.data++);
+            this.setFlag(Flags.Z, !this._bus.data);
+            this.setFlag(Flags.N, this._bus.data & 0x80);
+        });
+        this.microCodeStack.push(() => {}); // allow the cpu to fetch the next instruction.
+    }
+
+    EOR() { // exclusive or
+        this.microCodeStack.push(() => {
+            this.a ^= this._bus.data;
+            this.setFlag(Flags.Z, !this.a);
+            this.setFlag(Flags.N, this.a & 0x80);
+        });
+    }
+    CLC() { // clear carry
+        this.microCodeStack.push(() => this.setFlag(Flags.C, 0));
+    }
+    SEC() { // set carry
+        this.microCodeStack.push(() => this.setFlag(Flags.C, 1));
+    }
+    CLI() { // clear Interrupt
+        this.microCodeStack.push(() => this.setFlag(Flags.I, 0));
+    }
+    SEI() { // set interrupt
+        this.microCodeStack.push(() => this.setFlag(Flags.I, 1));
+    }
+    CLV() { // clear overflow
+        this.microCodeStack.push(() => this.setFlag(Flags.V, 0));
+    }
+    CLD() { // clear decimal
+        this.microCodeStack.push(() => this.setFlag(Flags.D, 0));
+    }
+    SED() { // set decimal
+        this.microCodeStack.push(() => this.setFlag(Flags.D, 1));
+    }
+
     ORA() {}
     STP() {}
     SLO() {}
     NOP() {}
     PHP() {}
     ANC() {}
-    CLC() {}
     JSR() {}
     RLA() {}
     ROL() {}
     PLP() {}
-    SEC() {}
     RTI() {}
-    EOR() {}
     SRE() {}
     LSR() {}
     PHA() {}
     ALR() {}
     JMP() {}
-    CLI() {}
     RTS() {}
     RRA() {}
     ROR() {}
     ARR() {}
     PLA() {}
-    SEI() {}
     STA() {}
     SAX() {}
     STY() {}
@@ -652,24 +759,16 @@ export class nes6502 {
     LAX() {}
     TAY() {}
     TAX() {}
-    CLV() {}
     TSX() {}
     LAS() {}
-    CPY() {}
-    CMP() {}
     DCP() {}
-    DEC() {}
     INY() {}
     DEX() {}
     AXS() {}
     SCP() {}
-    CLD() {}
-    CPX() {}
     SBC() {}
     ISC() {}
-    INC() {}
     INX() {}
-    SED() {}
 
     public clock() {
         // make a micro code stack
@@ -682,6 +781,11 @@ export class nes6502 {
             const microCode = this.microCodeStack.shift();
             // we check for falsy, although this should never happen.
             microCode && microCode();
+
+            // after every op is done, fetch next instruction.
+            if (!this.microCodeStack.length) {
+                this._bus.read(this.pc);
+            }
         } else {
             this._fetch = this.opCodeLookup[this._bus.data];
             this._fetch.addressingMode();
@@ -692,7 +796,7 @@ export class nes6502 {
     public getFlag(flag: Flags): number {
         return (this.status & flag) != 0 ? 1 : 0;
     }
-    public setFlag(flag: Flags, value: number) {
+    public setFlag(flag: Flags, value: number | boolean) {
         if (value) {
             this.status |= flag; // set bit
         } else {
