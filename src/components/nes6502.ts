@@ -606,7 +606,6 @@ export class nes6502 {
     BEQ() { // Branch on equal (Z = 1)
         this.BRA(this.getFlag(Flags.Z) === 1);
     }
-
     BRK() { // BreaK
         /*
         
@@ -689,7 +688,6 @@ export class nes6502 {
         });
         this.microCodeStack.push(() => {}); // allow the cpu to fetch the next instruction.
     }
-
     EOR() { // exclusive or
         this.microCodeStack.push(() => {
             this.a ^= this._bus.data;
@@ -718,6 +716,12 @@ export class nes6502 {
     SED() { // set decimal
         this.microCodeStack.push(() => this.setFlag(Flags.D, 1));
     }
+    JMP() { // Jump
+        this.microCodeStack.push(() => {
+            this.pc = this._t + (this._bus.data << 8)
+        });
+    }
+    JSR() {}
 
     ORA() {}
     STP() {}
@@ -725,7 +729,6 @@ export class nes6502 {
     NOP() {}
     PHP() {}
     ANC() {}
-    JSR() {}
     RLA() {}
     ROL() {}
     PLP() {}
@@ -734,7 +737,6 @@ export class nes6502 {
     LSR() {}
     PHA() {}
     ALR() {}
-    JMP() {}
     RTS() {}
     RRA() {}
     ROR() {}
