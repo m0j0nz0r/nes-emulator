@@ -78,7 +78,7 @@ export class nes6502 {
         { name: 'SLO', operation: this.SLO, addressingMode: this.ABX}, // 1F
         
         // 20
-        { name: 'JSR', operation: this.JSR, addressingMode: this.ABS}, // 20
+        { name: 'JSR', operation: this.JSR, addressingMode: this.NUL}, // 20. JSR will do its own adressing.
         { name: 'AND', operation: this.AND, addressingMode: this.IZX}, // 21
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 22
         { name: 'RLA', operation: this.RLA, addressingMode: this.IZX}, // 23
@@ -373,6 +373,7 @@ export class nes6502 {
     ];
 
     // Addressing Modes
+    NUL() {} // Dummy Instruction/Adressing mode.
     IMP() { // Implied
         // Some operations state implied in the data sheet, but act on the accumulator.
         this.ACC();
@@ -545,12 +546,30 @@ export class nes6502 {
             });
         } else {
             result = this._bus.data << 1;
-            this.microCodeStack.push(() => this._bus.write(this._bus.addr, this._bus.data));
             this.microCodeStack.push(() => {
                 this._bus.write(this._bus.addr, result && 0xff);
                 setFlags(result);
             });
             this.microCodeStack.push(() => {}); // allow the result to be saved before fetching the next instruction.
+        }
+    }
+    LSR() { // Logical shift right
+        if (this._fetch?.addressingMode === this.ACC) {
+            this.microCodeStack.push(() => {
+                this.setFlag(Flags.C, this.a & 0x1);
+                this.a = this.a >> 1;
+                this.setFlag(Flags.N, this.a & 0x80);
+                this.setFlag(Flags.Z, !this.a);
+            });
+        } else {
+            this.microCodeStack.push(() => {
+                const result = this._bus.data >> 1;
+                this.setFlag(Flags.C, this._bus.data & 0x1);
+                this.setFlag(Flags.N, result & 0x80);
+                this.setFlag(Flags.Z, !result); 
+                this._bus.write(this._bus.addr, result);   
+            });
+            this.microCodeStack.push(() => {});
         }
     }
     BIT() { // test bits
@@ -624,7 +643,7 @@ export class nes6502 {
         // first cycle is done by clock.
         // second cycle done by addr mode.
         this.microCodeStack.push(() => {
-            this._bus.write(this.stackPointer, this.pc >> 8);
+            this._bus.write(0x0100 | this.stackPointer, this.pc >> 8);
             this.stackPointer--;
         });
         this.microCodeStack.push(() => {
@@ -721,7 +740,59 @@ export class nes6502 {
             this.pc = this._t + (this._bus.data << 8)
         });
     }
-    JSR() {}
+    JSR() { // Jump to subroutine
+        // This instruction does additional stuff during addressing.
+        // so we are implementing addressing within the instruction.
+        // We start from 2nd cycle, as we expect the opcode to have been fetched at this point.
+
+        /*
+        #  address R/W description
+       --- ------- --- -------------------------------------------------
+        1    PC     R  fetch opcode, increment PC
+        2    PC     R  fetch low address byte, increment PC
+        3  $0100,S  R  internal operation (predecrement S?)
+        4  $0100,S  W  push PCH on stack, decrement S
+        5  $0100,S  W  push PCL on stack, decrement S
+        6    PC     R  copy low address byte to PCL, fetch high address
+                       byte to PCH      
+        */
+        this.microCodeStack.push(() => { // cycle 2
+            this._bus.read(this.pc++);
+        });
+        this.microCodeStack.push(() => { // cycle 3
+            this._bus.read(0x0100 | this.stackPointer);
+            this.stackPointer = this._bus.data;
+            this.pc++;
+        });
+        this.microCodeStack.push(() => { // cycle 4
+            this._bus.write(this._bus.addr, this.pc >> 8);
+        });
+        this.microCodeStack.push(() => { // cycle 5
+            this._bus.write(this._bus.addr--, this.pc & 0xff);
+        });
+        this.microCodeStack.push(() => { // cycle 6
+            this._bus.read(this.pc);
+            this.stackPointer = this._bus.addr & 0xff;
+        });
+        this.microCodeStack.push(() => {
+            this.pc = (this._bus.data << 8) | (this.stackPointer);
+        });
+    }
+    LDA() {
+        this.microCodeStack.push(() => {
+            this.a = this._bus.data;
+        })
+    }
+    LDX() {
+        this.microCodeStack.push(() => {
+            this.x = this._bus.data;
+        })
+    }
+    LDY() {
+        this.microCodeStack.push(() => {
+            this.y = this._bus.data;
+        })
+    }
 
     ORA() {}
     STP() {}
@@ -734,7 +805,6 @@ export class nes6502 {
     PLP() {}
     RTI() {}
     SRE() {}
-    LSR() {}
     PHA() {}
     ALR() {}
     RTS() {}
@@ -755,9 +825,6 @@ export class nes6502 {
     TAS() {}
     SHY() {}
     SHX() {}
-    LDA() {}
-    LDX() {}
-    LDY() {}
     LAX() {}
     TAY() {}
     TAX() {}
@@ -804,5 +871,13 @@ export class nes6502 {
         } else {
             this.status &= ~flag; // clear bit
         }
+    }
+    public pushStack(value: number) {
+        this._bus.write(0x0100 | this.stackPointer, value);
+        this.stackPointer--;
+    }
+    public popStack() {
+        this._bus.read(0x0100 | this.stackPointer);
+        this.stackPointer++;
     }
 }
