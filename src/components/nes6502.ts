@@ -1070,8 +1070,10 @@ export class nes6502 {
         });
     }
 
-    STP() { // KIL
-
+    STP() { // KIL processor should get stuck in an infinite loop trying to process this code.
+        this.microCodeStack.push(() => {
+            this.STP();
+        });
     }
 
     public clock() {
