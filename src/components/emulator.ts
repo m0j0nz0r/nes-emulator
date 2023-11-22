@@ -5,7 +5,7 @@ import { nes6502 } from './nes6502';
 export class Emulator {
     constructor () {
         this._bus = new Bus();
-        this._ram = new RAM(this._bus, {minAddr: 0x0000, maxAddr: 0xffff});
+        this._ram = new RAM(this._bus, {minAddr: 0x0000, maxAddr: 0x1fff});
         this._cpu = new nes6502(this._bus);
     }
     private _bus: Bus;

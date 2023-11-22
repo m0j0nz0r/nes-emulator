@@ -17,7 +17,6 @@ interface Instruction {
 export class nes6502 {
     constructor (bus: Bus) {
         this._bus = bus;
-        this.setFlag(Flags.U, 1); // U is unused but always set.
     }
     private _bus: Bus;
     private _t: number = 0; // temporary private register to store bytes between cycles
@@ -26,12 +25,12 @@ export class nes6502 {
 
     clockSpeed = 21441960; // hz
 
-    a: number = 0; // accumulator register
-    x: number = 0; // X register
-    y: number = 0; // Y register
+    a: number = 0x0; // accumulator register
+    x: number = 0x0; // X register
+    y: number = 0x0; // Y register
     stackPointer: number = 0xfd;
-    pc: number = 0; // program counter
-    status: number = 0; // status register
+    pc: number = 0x0; // program counter
+    status: number = 0x0 | Flags.U; // status register
     microCodeStack: Function[] = []; // currently executing micro code
     opCodeLookup: Instruction[] = 
     [
@@ -984,6 +983,7 @@ export class nes6502 {
     }
 
     // Illegal opcodes.
+    // Many of these should have bad cycle counts. Fix as needed.
     SLO() {
         this.ASL();
         this.ORA();
@@ -1069,11 +1069,84 @@ export class nes6502 {
             this.a = this.x = this.stackPointer = this._bus.data & this.stackPointer;
         });
     }
-
     STP() { // KIL processor should get stuck in an infinite loop trying to process this code.
         this.microCodeStack.push(() => {
             this.STP();
         });
+    }
+
+
+    // Interrupts
+    reset() {
+        this.microCodeStack.push(() => {
+            this.a = 0;
+            this.x = 0;
+            this.y = 0;
+            this.stackPointer = 0xfd;
+            this.status = 0x0 | Flags.U;
+            
+            this._bus.read(0xfffc);
+        });
+        this.microCodeStack.push(() => {
+            this._t = this._bus.data;
+            this._bus.read(0xfffd);
+        });
+        this.microCodeStack.push(() => {
+            this.pc = this._t | (this._bus.data << 8);
+        });
+    }
+    irq() {
+        if (this.getFlag(Flags.I)) {
+            return;
+        }
+
+        this.microCodeStack.push(() => {
+            this.pushStack(this.pc >> 8);
+        });
+        this.microCodeStack.push(() => {
+            this.pushStack(this.pc & 0xff);
+        });
+        this.microCodeStack.push(() => {
+            this.setFlag(Flags.B, 0);
+            this.setFlag(Flags.U, 1);
+            this.setFlag(Flags.I, 1);
+            this.pushStack(this.status);
+        });
+        this.microCodeStack.push(() => {
+            this._bus.read(0xfffe);
+        });
+        this.microCodeStack.push(() => {
+            this._t = this._bus.data;
+            this._bus.read(0xffff);
+        });
+        this.microCodeStack.push(() => {
+            this.pc = this._t | (this._bus.data >> 8);
+        });
+    }
+    nmi() {
+        this.microCodeStack.push(() => {
+            this.pushStack(this.pc >> 8);
+        });
+        this.microCodeStack.push(() => {
+            this.pushStack(this.pc & 0xff);
+        });
+        this.microCodeStack.push(() => {
+            this.setFlag(Flags.B, 0);
+            this.setFlag(Flags.U, 1);
+            this.setFlag(Flags.I, 1);
+            this.pushStack(this.status);
+        });
+        this.microCodeStack.push(() => {
+            this._bus.read(0xfffa);
+        });
+        this.microCodeStack.push(() => {
+            this._t = this._bus.data;
+            this._bus.read(0xfffb);
+        });
+        this.microCodeStack.push(() => {
+            this.pc = this._t | (this._bus.data >> 8);
+        });
+
     }
 
     public clock() {
