@@ -1,4 +1,4 @@
-import { Bus, ReadFlagState } from './bus';
+import { Bus } from './bus';
 enum Flags {
     C = (1 << 0), // carry bit
     Z = (1 << 1), // zero
@@ -120,7 +120,7 @@ export class nes6502 {
         { name: 'RLA', operation: this.RLA, addressingMode: this.ABX}, // 3F
         
         // 40
-        { name: 'RTI', operation: this.RTI, addressingMode: this.IMP}, // 40
+        { name: 'RTI', operation: this.RTI, addressingMode: this.IMM}, // 40
         { name: 'EOR', operation: this.EOR, addressingMode: this.IZX}, // 41
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 42
         { name: 'SRE', operation: this.SRE, addressingMode: this.IZX}, // 43
@@ -306,7 +306,7 @@ export class nes6502 {
         { name: 'CPY', operation: this.CPY, addressingMode: this.ABS}, // CC
         { name: 'CMP', operation: this.CMP, addressingMode: this.ABS}, // CD
         { name: 'DEC', operation: this.DEC, addressingMode: this.ABS}, // CE
-        { name: 'SCP', operation: this.SCP, addressingMode: this.ABS}, // CF
+        { name: 'SCP', operation: this.DCP, addressingMode: this.ABS}, // CF
         
         // D0
         { name: 'BNE', operation: this.BNE, addressingMode: this.ZP0}, // D0
@@ -514,20 +514,23 @@ export class nes6502 {
             const result = m + n + this.getFlag(Flags.C);
             this.a = result & 0xff;
 
-            this.setFlag(Flags.C, result > 0xff);
-            this.setFlag(Flags.Z, !result);
-
+            this.setFlag(Flags.C, result & 0x100);
             // formula taken from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
             this.setFlag(Flags.V, (m ^ result) & (n ^result) & 0x80);
-            this.setFlag(Flags.Z, result & 0x80);
+
+            this.testNZFlags(result);
         })
+    }
+    SBC() { // Substract with carry
+        // substraction works the same as addition with flipped bits on the second argument
+        this._bus.data = ~this._bus.data;
+        this.ADC();
     }
     AND() { // Bitwise AND with Acc
         this.microCodeStack.push(() => {
             this.a &= this._bus.data;
 
-            this.setFlag(Flags.N, this.a & 0x80);
-            this.setFlag(Flags.Z, !this.a);
+            this.testNZFlags(this.a);
         });
     }
     ASL() { // Arithmetic shift(1) left
@@ -550,7 +553,7 @@ export class nes6502 {
                 this._bus.write(this._bus.addr, result && 0xff);
                 setFlags(result);
             });
-            this.microCodeStack.push(() => {}); // allow the result to be saved before fetching the next instruction.
+            this.NOP(); // allow the result to be saved before fetching the next instruction.
         }
     }
     LSR() { // Logical shift right
@@ -558,18 +561,16 @@ export class nes6502 {
             this.microCodeStack.push(() => {
                 this.setFlag(Flags.C, this.a & 0x1);
                 this.a = this.a >> 1;
-                this.setFlag(Flags.N, this.a & 0x80);
-                this.setFlag(Flags.Z, !this.a);
+                this.testNZFlags(this.a);
             });
         } else {
             this.microCodeStack.push(() => {
                 const result = this._bus.data >> 1;
                 this.setFlag(Flags.C, this._bus.data & 0x1);
-                this.setFlag(Flags.N, result & 0x80);
-                this.setFlag(Flags.Z, !result); 
+                this.testNZFlags(result);
                 this._bus.write(this._bus.addr, result);   
             });
-            this.microCodeStack.push(() => {});
+            this.NOP();
         }
     }
     BIT() { // test bits
@@ -579,7 +580,7 @@ export class nes6502 {
             this.setFlag(Flags.C, this._bus.data & 0x100); // test bit 8
         })
     }
-    BRA(shouldBranch: boolean) { // Generic branch
+    private _BRA(shouldBranch: boolean) { // Generic branch
         this.microCodeStack.push(() => {
             if (shouldBranch) {
                 const hi = this.pc & 0xff00;
@@ -595,10 +596,10 @@ export class nes6502 {
         })
     }
     BPL() { // Branch on plus (N = 0)
-        this.BRA(this.getFlag(Flags.N) === 0);
+        this._BRA(this.getFlag(Flags.N) === 0);
     }
     BMI() { // Branch on minus (N = 1)
-        this.BRA(this.getFlag(Flags.N) === 1);
+        this._BRA(this.getFlag(Flags.N) === 1);
     }
     BVC() { // Branch on overfow clear (V = 0)
         if (this.getFlag(Flags.C) === 0) {
@@ -611,19 +612,19 @@ export class nes6502 {
         }
 }
     BVS() { // Branch on overflow set (V = 1)
-        this.BRA(this.getFlag(Flags.V) === 1);
+        this._BRA(this.getFlag(Flags.V) === 1);
     }
     BCC() { // Branch on carry clear (C = 0)
-        this.BRA(this.getFlag(Flags.C) === 0);
+        this._BRA(this.getFlag(Flags.C) === 0);
     }
     BCS() { // Branch on carry set (C = 1)
-        this.BRA(this.getFlag(Flags.C) === 1);
+        this._BRA(this.getFlag(Flags.C) === 1);
     }
     BNE() { // Branch on not equal (Z = 0)
-        this.BRA(this.getFlag(Flags.Z) === 0);
+        this._BRA(this.getFlag(Flags.Z) === 0);
     }
     BEQ() { // Branch on equal (Z = 1)
-        this.BRA(this.getFlag(Flags.Z) === 1);
+        this._BRA(this.getFlag(Flags.Z) === 1);
     }
     BRK() { // BreaK
         /*
@@ -643,7 +644,7 @@ export class nes6502 {
         // first cycle is done by clock.
         // second cycle done by addr mode.
         this.microCodeStack.push(() => {
-            this._bus.write(0x0100 | this.stackPointer, this.pc >> 8);
+            this._bus.write(0x100 | this.stackPointer, this.pc >> 8);
             this.stackPointer--;
         });
         this.microCodeStack.push(() => {
@@ -666,7 +667,7 @@ export class nes6502 {
             this.pc |= this._bus.data;
         });
     }
-    CPA(reg: number) { // generic compare
+    private _CPA(reg: number) { // generic compare
         this.microCodeStack.push(() => {
             const m = reg;
             const n = this._bus.data ^0xff;
@@ -677,41 +678,34 @@ export class nes6502 {
         });
     }
     CMP() { // compare A
-        this.CPA(this.a);
+        this._CPA(this.a);
     }
     CPX() { // compare X
-        this.CPA(this.x);
+        this._CPA(this.x);
     }
     CPY() { // compare Y
-        this.CPA(this.y);
+        this._CPA(this.y);
     }
     DEC() { // decrement memory
-        this.microCodeStack.push(() => {
-            this._bus.write(this._bus.addr, this._bus.data);
-        });
+        this._STO(this._bus.data);
         this.microCodeStack.push(() => {
             this._bus.write(this._bus.addr, this._bus.data--);
-            this.setFlag(Flags.Z, !this._bus.data);
-            this.setFlag(Flags.N, this._bus.data & 0x80);
+            this.testNZFlags(this._bus.data);
         });
         this.microCodeStack.push(() => {}); // allow the cpu to fetch the next instruction.
     }
     INC() { // Increment memory
-        this.microCodeStack.push(() => {
-            this._bus.write(this._bus.addr, this._bus.data);
-        });
+        this._STO(this._bus.data);
         this.microCodeStack.push(() => {
             this._bus.write(this._bus.addr, this._bus.data++);
-            this.setFlag(Flags.Z, !this._bus.data);
-            this.setFlag(Flags.N, this._bus.data & 0x80);
+            this.testNZFlags(this._bus.data);
         });
         this.microCodeStack.push(() => {}); // allow the cpu to fetch the next instruction.
     }
     EOR() { // exclusive or
         this.microCodeStack.push(() => {
             this.a ^= this._bus.data;
-            this.setFlag(Flags.Z, !this.a);
-            this.setFlag(Flags.N, this.a & 0x80);
+            this.testNZFlags(this.a);
         });
     }
     CLC() { // clear carry
@@ -760,7 +754,7 @@ export class nes6502 {
             this._bus.read(this.pc++);
         });
         this.microCodeStack.push(() => { // cycle 3
-            this._bus.read(0x0100 | this.stackPointer);
+            this._bus.read(0x100 | this.stackPointer);
             this.stackPointer = this._bus.data;
             this.pc++;
         });
@@ -778,66 +772,307 @@ export class nes6502 {
             this.pc = (this._bus.data << 8) | (this.stackPointer);
         });
     }
-    LDA() {
+    LDA() { // Load A
         this.microCodeStack.push(() => {
             this.a = this._bus.data;
         })
     }
-    LDX() {
+    LDX() { // Load X
         this.microCodeStack.push(() => {
             this.x = this._bus.data;
         })
     }
-    LDY() {
+    LDY() { // Load Y
         this.microCodeStack.push(() => {
             this.y = this._bus.data;
         })
     }
+    NOP() { // no operation
+        this.microCodeStack.push(() => {});
+    }
+    ORA() { // Bitwise OR with accumulator
+        this.microCodeStack.push(() => {
+            this.a |= this._bus.data;
+            this.testNZFlags(this.a);
+        });
+    }
+    TAX() { // Transfer A to X
+        this.microCodeStack.push(() => {
+            this.x = this.a;
+            this.testNZFlags(this.x);
+        });
+    }
+    TXA() { // Transfer X to A
+        this.microCodeStack.push(() => {
+            this.a = this.x;
+            this.testNZFlags(this.a);
+        })
+    }
+    DEX() { // Decrement X
+        this.microCodeStack.push(() => {
+            this.x--;
+            this.testNZFlags(this.x);
+        });
+    }
+    DEY() { // Decrement Y
+        this.microCodeStack.push(() => {
+            this.y--;
+            this.testNZFlags(this.y);
+        });
+    }
+    INX() { // Increment X
+        this.microCodeStack.push(() => {
+            this.x++;
+            this.testNZFlags(this.x);
+        });
+    }
+    INY() { // Increment Y
+        this.microCodeStack.push(() => {
+            this.y++;
+            this.testNZFlags(this.y);
+        });
+    }
+    TAY() { // Transfer A to Y
+        this.microCodeStack.push(() => {
+            this.y = this.a;
+            this.testNZFlags(this.y);
+        });
+    }
+    TYA() { // Transfer Y to A
+        this.microCodeStack.push(() => {
+            this.a = this.y;
+            this.testNZFlags(this.a);
+        });
+    }
+    ROL() { // Rotate Left
+        const p = this;
+        function rotate(v: number): number {
+            let result = v << 1;
 
-    ORA() {}
-    STP() {}
-    SLO() {}
-    NOP() {}
-    PHP() {}
-    ANC() {}
-    RLA() {}
-    ROL() {}
-    PLP() {}
-    RTI() {}
-    SRE() {}
-    PHA() {}
-    ALR() {}
-    RTS() {}
-    RRA() {}
-    ROR() {}
-    ARR() {}
-    PLA() {}
-    STA() {}
-    SAX() {}
-    STY() {}
-    STX() {}
-    DEY() {}
-    TXA() {}
-    XAA() {}
-    AHX() {}
-    TYA() {}
-    TXS() {}
-    TAS() {}
-    SHY() {}
-    SHX() {}
-    LAX() {}
-    TAY() {}
-    TAX() {}
-    TSX() {}
-    LAS() {}
-    DCP() {}
-    INY() {}
-    DEX() {}
-    AXS() {}
-    SCP() {}
-    SBC() {}
-    ISC() {}
-    INX() {}
+            // set b0 to the value of the carry flag
+            if (p.getFlag(Flags.C)) {
+                result |= 0x1;
+            } else {
+                result &= ~0x1;
+            }
+
+            // set the carry flag to the value of b7
+            p.setFlag(Flags.C, v & 0x80);
+            p.testNZFlags(result);
+            return result;
+        }
+        if (this._fetch?.addressingMode === this.ACC) {
+            this.microCodeStack.push(() => {
+                this.a = rotate(this.a) & 0xff;
+            });    
+        } else {
+            this.microCodeStack.push(() => {
+                this._bus.write(this._bus.addr, rotate(this._bus.data) & 0xff);
+            });
+            this.NOP();
+        }
+    }
+    ROR() { // Rotate right
+        const p = this;
+        function rotate(v: number): number {
+            let result = v >> 1;
+
+            // set b7 to the value of the carry flag.
+            if (p.getFlag(Flags.C)) {
+                v |= 0x80;
+            } else {
+                v &= ~0x80;
+            }
+
+            // set the carry flag to the value of b0
+            p.setFlag(Flags.C, v & 0x1);
+            p.testNZFlags(result);
+            return result;
+        }
+        if (this._fetch?.addressingMode === this.ACC) {
+            this.microCodeStack.push(() => {
+                this.a = rotate(this.a) & 0xff;
+            });    
+        } else {
+            this.microCodeStack.push(() => {
+                this._bus.write(this._bus.addr, rotate(this._bus.data) & 0xff);
+            });
+            this.NOP();
+        }
+    }
+    RTI() { // Return from Interrupt
+        this.microCodeStack.push(() => {
+            this.popStack();
+        });
+        this.microCodeStack.push(() => {
+            this.status = this._bus.data;
+            this.popStack();
+        });
+        this.microCodeStack.push(() => {
+            this.pc = this._bus.data;
+            this.popStack();
+        });
+        this.microCodeStack.push(() => {
+            this.pc |= this._bus.data << 8;
+        });
+    }
+    RTS() { // Return from SubRoutine
+        this.microCodeStack.push(() => {
+            this.popStack();
+        });
+        this.microCodeStack.push(() => {
+            this._t = this._bus.data;
+            this.popStack();
+        });
+        this.microCodeStack.push(() => {
+            this._t |= (this._bus.data << 8);
+            this._bus.read(this.stackPointer);
+        });
+        this.microCodeStack.push(() => {
+            this.pc = this._t;
+        });
+    }
+    private _STO(v: number) { // Generic store value to current addr
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, v);
+        });
+    }
+    STA() { // Store A
+        this._STO(this.a);
+    }
+    STX() { // Store X
+        this._STO(this.x);
+    }
+    STY() {
+        this._STO(this.y);
+    }
+    TXS() { // Transfer X to stack pointer
+        this.microCodeStack.push(() => {
+            this.stackPointer = this.x;
+        });
+    }
+    TSX() { // Transfer Stack Pointer to X 
+        this.microCodeStack.push(() => {
+            this.x = this.stackPointer;
+        });
+    }
+    PHA() { // Push Accumulator
+        this.microCodeStack.push(() => {
+            this.pushStack(this.a);
+        });
+    }
+    PLA() { // Pull Accumulator
+        this.microCodeStack.push(() => {
+            this.popStack();
+        });
+        this.microCodeStack.push(() => {
+            this.a = this._bus.data;
+        });
+    }
+    PHP() { // Push Processor Status
+        this.microCodeStack.push(() => {
+            this.pushStack(this.status);
+        });
+    }
+    PLP() { // Pull Processor Status
+        this.microCodeStack.push(() => {
+            this.popStack();
+        });
+        this.microCodeStack.push(() => {
+            this.status = this._bus.data;
+        });
+    }
+
+    // Illegal opcodes.
+    SLO() {
+        this.ASL();
+        this.ORA();
+    }
+    RLA() {
+        this.ROL();
+        this.AND();
+    }
+    SRE() {
+        this.LSR();
+        this.EOR();
+    }
+    RRA() {
+        this.ROR();
+        this.ADC();
+    }
+    SAX() {
+        this._STO(this.a & this.x);
+    }
+    LAX() {
+        this.LDA();
+        this.LDX();
+    }
+    DCP() {
+        this.DEC();
+        this.CMP();
+    }
+    ISC() {
+        this.INC();
+        this.SBC();
+    }
+    ANC() {
+        this.microCodeStack.push(() => {
+            this.a &= this._bus.data;
+            this.setFlag(Flags.C, this.a & 0x80);
+        });
+    }
+    ALR() {
+        this.AND();
+        this.LSR();
+    }
+    ARR() {
+        this.AND();
+        this.ROR();
+    }
+    XAA() {
+        this.microCodeStack.push(() => {
+            this.a = this.x & this._bus.data;
+            this.testNZFlags(this.a);
+        })
+    }
+    AXS() {
+        this.CMP();
+        this.DEX();
+    }
+    AHX() {
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this.a & this.x & (this._bus.addr >> 8));
+        });
+        this.NOP()
+    }
+    SHY() {
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this.y & (this._bus.addr >> 8));
+        });
+        this.NOP();
+    }
+    SHX() {
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this.x & (this._bus.addr >> 8));
+        });
+        this.NOP();
+    }
+    TAS() {
+        this.microCodeStack.push(() => {
+            this.stackPointer = this.a & this.x;
+            this._bus.write(this._bus.addr, this.stackPointer & (this._bus.addr >> 8));
+        });
+        this.NOP();
+    }
+    LAS() {
+        this.microCodeStack.push(() => {
+            this.a = this.x = this.stackPointer = this._bus.data & this.stackPointer;
+        });
+    }
+
+    STP() { // KIL
+
+    }
 
     public clock() {
         // make a micro code stack
@@ -873,11 +1108,15 @@ export class nes6502 {
         }
     }
     public pushStack(value: number) {
-        this._bus.write(0x0100 | this.stackPointer, value);
+        this._bus.write(0x100 | this.stackPointer, value);
         this.stackPointer--;
     }
     public popStack() {
-        this._bus.read(0x0100 | this.stackPointer);
+        this._bus.read(0x100 | this.stackPointer);
         this.stackPointer++;
+    }
+    public testNZFlags(v: number) {
+        this.setFlag(Flags.N, v & 0x80);
+        this.setFlag(Flags.Z, !v);
     }
 }
