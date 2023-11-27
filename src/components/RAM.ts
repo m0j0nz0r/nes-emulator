@@ -3,15 +3,17 @@ import { Bus, ReadFlagState } from './bus';
 const addrRange = { minAddr: 0x0000, maxAddr: 0x1fff};
 
 export class RAM {
-    constructor (bus: Bus) {
+    constructor (bus: Bus, ram: number[] | Buffer = [], range = addrRange) {
         this._bus = bus;
-        this._ram = [];
+        this._ram = ram;
+        this._range = range;
     }
     private _bus: Bus;
-    private _ram: number[];
+    private _ram: number[] | Buffer;
+    private _range: {minAddr: number, maxAddr: number};
     public clock() {
         // make sure we are on our addressable space.
-        if (this._bus.addr < addrRange.minAddr || this._bus.addr > addrRange.maxAddr) {
+        if (this._bus.addr < this._range.minAddr || this._bus.addr > this._range.maxAddr) {
             return;
         }
 
