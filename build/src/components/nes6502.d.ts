@@ -29,7 +29,9 @@ export declare class nes6502 {
     private _y;
     get y(): number;
     set y(v: number);
-    stackPointer: number;
+    private _sp;
+    get stackPointer(): number;
+    set stackPointer(v: number);
     pc: number;
     status: number;
     microCodeStack: Function[];

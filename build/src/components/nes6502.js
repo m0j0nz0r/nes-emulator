@@ -19,7 +19,7 @@ class nes6502 {
         this._a = 0x0; // accumulator register
         this._x = 0x0; // X register
         this._y = 0x0; // Y register
-        this.stackPointer = 0xfd;
+        this._sp = 0xfd;
         this.pc = 0x0; // program counter
         this.status = 0x0 | Flags.U; // status register
         this.microCodeStack = []; // currently executing micro code
@@ -317,6 +317,12 @@ class nes6502 {
     }
     set y(v) {
         this._y = v & 0xff;
+    }
+    get stackPointer() {
+        return this._sp;
+    }
+    set stackPointer(v) {
+        this._sp = v & 0xff;
     }
     // Addressing Modes
     NUL() { } // Dummy Instruction/Adressing mode.
@@ -732,6 +738,7 @@ class nes6502 {
             this.pc++;
         });
         this.microCodeStack.push(() => {
+            this._bus.addr--;
             this._bus.write(this._bus.addr, this.pc >> 8);
         });
         this.microCodeStack.push(() => {
@@ -739,9 +746,9 @@ class nes6502 {
             this._bus.write(this._bus.addr, this.pc & 0xff);
         });
         this.microCodeStack.push(() => {
-            this._bus.read(this.pc);
             this._t = this.stackPointer;
             this.stackPointer = this._bus.addr & 0xff;
+            this._bus.read(this.pc);
         });
         this.microCodeStack.push(() => {
             this.pc = (this._bus.data << 8) | (this._t & 0xff);
@@ -913,6 +920,7 @@ class nes6502 {
         });
         this.microCodeStack.push(() => {
             this.pc = this._t;
+            this.pc++;
         });
     }
     _STO(v) {

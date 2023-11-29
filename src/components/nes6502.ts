@@ -46,7 +46,13 @@ export class nes6502 {
     set y(v: number) {
         this._y = v & 0xff;
     }
-    stackPointer: number = 0xfd;
+    private _sp: number = 0xfd;
+    get stackPointer(): number {
+        return this._sp;
+    }
+    set stackPointer(v: number) {
+        this._sp = v & 0xff;
+    }
     pc: number = 0x0; // program counter
     status: number = 0x0 | Flags.U; // status register
     microCodeStack: Function[] = []; // currently executing micro code
@@ -812,6 +818,7 @@ export class nes6502 {
             this.pc++;
         });
         this.microCodeStack.push(() => { // cycle 4
+            this._bus.addr--;
             this._bus.write(this._bus.addr, this.pc >> 8);
         });
         this.microCodeStack.push(() => { // cycle 5
@@ -819,9 +826,9 @@ export class nes6502 {
             this._bus.write(this._bus.addr, this.pc & 0xff);
         });
         this.microCodeStack.push(() => { // cycle 6
-            this._bus.read(this.pc);
             this._t = this.stackPointer;
             this.stackPointer = this._bus.addr & 0xff;
+            this._bus.read(this.pc);
         });
         this.microCodeStack.push(() => {
             this.pc = (this._bus.data << 8) | (this._t & 0xff);
@@ -991,6 +998,7 @@ export class nes6502 {
         });
         this.microCodeStack.push(() => {
             this.pc = this._t;
+            this.pc++;
         });
     }
     private _STO(v: number) { // Generic store value to current addr
