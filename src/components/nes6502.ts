@@ -624,7 +624,7 @@ export class nes6502 {
             this.setFlag(Flags.N, this._bus.data & 0x80); // test bit 7
             this.setFlag(Flags.Z, !(this._bus.data & this.a));
             this.setFlag(Flags.V, this._bus.data & 0x40); // test bit 6
-        })
+        });
     }
     private _BRA(shouldBranch: boolean) { // Generic branch
         this.microCodeStack.push(() => {
@@ -649,14 +649,17 @@ export class nes6502 {
         this._BRA(this.getFlag(Flags.N) === 1);
     }
     BVC() { // Branch on overfow clear (V = 0)
-        if (this.getFlag(Flags.C) === 0) {
-            const hi = this.pc & 0xff00;
-            const lo = (this.pc & 0xff) + this._bus.data;
-
-            this.microCodeStack.push(() => this.pc = hi + (lo & 0xff));
-            this.microCodeStack.push(() => this.pc = hi + lo);
-            // BVC always takes 3 cycles if branch is taken.
-        }
+        this.microCodeStack.push(() => {
+            this.pc++;
+            if (this.getFlag(Flags.V) === 0) {
+                const hi = this.pc & 0xff00;
+                const lo = (this.pc & 0xff) + this._bus.data;
+    
+                this.microCodeStack.push(() => this.pc = hi + (lo & 0xff));
+                this.microCodeStack.push(() => this.pc = hi + lo);
+                // BVC always takes 3 cycles if branch is taken.
+            }
+        });
 }
     BVS() { // Branch on overflow set (V = 1)
         this._BRA(this.getFlag(Flags.V) === 1);
@@ -994,6 +997,7 @@ export class nes6502 {
         this.microCodeStack.push(() => {
             this._bus.write(this._bus.addr, v);
         });
+        this.microCodeStack.push(() => {});
     }
     STA() { // Store A
         this._STO(this.a);

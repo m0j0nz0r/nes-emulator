@@ -547,7 +547,7 @@ class nes6502 {
         this.microCodeStack.push(() => {
             this.setFlag(Flags.N, this._bus.data & 0x80); // test bit 7
             this.setFlag(Flags.Z, !(this._bus.data & this.a));
-            this.setFlag(Flags.C, this._bus.data & 0x100); // test bit 8
+            this.setFlag(Flags.V, this._bus.data & 0x40); // test bit 6
         });
     }
     _BRA(shouldBranch) {
@@ -572,13 +572,16 @@ class nes6502 {
         this._BRA(this.getFlag(Flags.N) === 1);
     }
     BVC() {
-        if (this.getFlag(Flags.C) === 0) {
-            const hi = this.pc & 0xff00;
-            const lo = (this.pc & 0xff) + this._bus.data;
-            this.microCodeStack.push(() => this.pc = hi + (lo & 0xff));
-            this.microCodeStack.push(() => this.pc = hi + lo);
-            // BVC always takes 3 cycles if branch is taken.
-        }
+        this.microCodeStack.push(() => {
+            this.pc++;
+            if (this.getFlag(Flags.V) === 0) {
+                const hi = this.pc & 0xff00;
+                const lo = (this.pc & 0xff) + this._bus.data;
+                this.microCodeStack.push(() => this.pc = hi + (lo & 0xff));
+                this.microCodeStack.push(() => this.pc = hi + lo);
+                // BVC always takes 3 cycles if branch is taken.
+            }
+        });
     }
     BVS() {
         this._BRA(this.getFlag(Flags.V) === 1);
@@ -916,6 +919,7 @@ class nes6502 {
         this.microCodeStack.push(() => {
             this._bus.write(this._bus.addr, v);
         });
+        this.microCodeStack.push(() => { });
     }
     STA() {
         this._STO(this.a);
