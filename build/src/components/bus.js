@@ -8,7 +8,7 @@ var ReadFlagState;
 })(ReadFlagState || (exports.ReadFlagState = ReadFlagState = {}));
 class Bus {
     constructor() {
-        this.rwFlag = ReadFlagState.read; // writing when true;
+        this.rwFlag = ReadFlagState.read;
         this._addr = 0;
         this.data = 0;
     }

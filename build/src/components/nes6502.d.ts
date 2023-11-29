@@ -20,9 +20,15 @@ export declare class nes6502 {
     private _t;
     private _fetch?;
     clockSpeed: number;
-    a: number;
-    x: number;
-    y: number;
+    private _a;
+    get a(): number;
+    set a(v: number);
+    private _x;
+    get x(): number;
+    set x(v: number);
+    private _y;
+    get y(): number;
+    set y(v: number);
     stackPointer: number;
     pc: number;
     status: number;
@@ -126,6 +132,7 @@ export declare class nes6502 {
     irq(): void;
     nmi(): void;
     clock(): void;
+    private count;
     getFlag(flag: Flags): number;
     setFlag(flag: Flags, value: number | boolean): void;
     pushStack(value: number): void;

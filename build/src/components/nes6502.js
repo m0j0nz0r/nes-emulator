@@ -16,9 +16,9 @@ class nes6502 {
     constructor(bus) {
         this._t = 0; // temporary private register to store bytes between cycles
         this.clockSpeed = 21441960; // hz
-        this.a = 0x0; // accumulator register
-        this.x = 0x0; // X register
-        this.y = 0x0; // Y register
+        this._a = 0x0; // accumulator register
+        this._x = 0x0; // X register
+        this._y = 0x0; // Y register
         this.stackPointer = 0xfd;
         this.pc = 0x0; // program counter
         this.status = 0x0 | Flags.U; // status register
@@ -42,7 +42,7 @@ class nes6502 {
             { name: 'ASL', operation: this.ASL, addressingMode: this.ABS },
             { name: 'SLO', operation: this.SLO, addressingMode: this.ABS },
             // 10
-            { name: 'BPL', operation: this.BPL, addressingMode: this.ZP0 },
+            { name: 'BPL', operation: this.BPL, addressingMode: this.REL },
             { name: 'ORA', operation: this.ORA, addressingMode: this.IZY },
             { name: 'STP', operation: this.STP, addressingMode: this.IMP },
             { name: 'SLO', operation: this.SLO, addressingMode: this.IZY },
@@ -76,7 +76,7 @@ class nes6502 {
             { name: 'ROL', operation: this.ROL, addressingMode: this.ABS },
             { name: 'RLA', operation: this.RLA, addressingMode: this.ABS },
             // 30
-            { name: 'BMI', operation: this.BMI, addressingMode: this.ZP0 },
+            { name: 'BMI', operation: this.BMI, addressingMode: this.REL },
             { name: 'AND', operation: this.AND, addressingMode: this.IZY },
             { name: 'STP', operation: this.STP, addressingMode: this.IMP },
             { name: 'RLA', operation: this.RLA, addressingMode: this.IZY },
@@ -110,7 +110,7 @@ class nes6502 {
             { name: 'LSR', operation: this.LSR, addressingMode: this.ABS },
             { name: 'SRE', operation: this.SRE, addressingMode: this.ABS },
             // 50
-            { name: 'BVC', operation: this.BVC, addressingMode: this.ZP0 },
+            { name: 'BVC', operation: this.BVC, addressingMode: this.REL },
             { name: 'EOR', operation: this.EOR, addressingMode: this.IZY },
             { name: 'STP', operation: this.STP, addressingMode: this.IMP },
             { name: 'SRE', operation: this.SRE, addressingMode: this.IZY },
@@ -144,7 +144,7 @@ class nes6502 {
             { name: 'ROR', operation: this.ROR, addressingMode: this.ABS },
             { name: 'RRA', operation: this.RRA, addressingMode: this.ABS },
             // 70
-            { name: 'BVS', operation: this.BVS, addressingMode: this.ZP0 },
+            { name: 'BVS', operation: this.BVS, addressingMode: this.REL },
             { name: 'ADC', operation: this.ADC, addressingMode: this.IZY },
             { name: 'STP', operation: this.STP, addressingMode: this.IMP },
             { name: 'RRA', operation: this.RRA, addressingMode: this.IZY },
@@ -178,7 +178,7 @@ class nes6502 {
             { name: 'STX', operation: this.STX, addressingMode: this.ABS },
             { name: 'SAX', operation: this.SAX, addressingMode: this.ABS },
             // 90
-            { name: 'BCC', operation: this.BCC, addressingMode: this.ZP0 },
+            { name: 'BCC', operation: this.BCC, addressingMode: this.REL },
             { name: 'STA', operation: this.STA, addressingMode: this.IZY },
             { name: 'STP', operation: this.STP, addressingMode: this.IMP },
             { name: 'AHX', operation: this.AHX, addressingMode: this.IZY },
@@ -212,7 +212,7 @@ class nes6502 {
             { name: 'LDX', operation: this.LDX, addressingMode: this.ABS },
             { name: 'LAX', operation: this.LAX, addressingMode: this.ABS },
             // B0
-            { name: 'BCS', operation: this.BCS, addressingMode: this.ZP0 },
+            { name: 'BCS', operation: this.BCS, addressingMode: this.REL },
             { name: 'LDA', operation: this.LDA, addressingMode: this.IZY },
             { name: 'STP', operation: this.STP, addressingMode: this.IMP },
             { name: 'LAX', operation: this.LAX, addressingMode: this.IZY },
@@ -246,7 +246,7 @@ class nes6502 {
             { name: 'DEC', operation: this.DEC, addressingMode: this.ABS },
             { name: 'SCP', operation: this.DCP, addressingMode: this.ABS },
             // D0
-            { name: 'BNE', operation: this.BNE, addressingMode: this.ZP0 },
+            { name: 'BNE', operation: this.BNE, addressingMode: this.REL },
             { name: 'CMP', operation: this.CMP, addressingMode: this.IZY },
             { name: 'STP', operation: this.STP, addressingMode: this.IMP },
             { name: 'DCP', operation: this.DCP, addressingMode: this.IZY },
@@ -280,7 +280,7 @@ class nes6502 {
             { name: 'INC', operation: this.INC, addressingMode: this.ABS },
             { name: 'ISC', operation: this.ISC, addressingMode: this.ABS },
             // F0
-            { name: 'BEQ', operation: this.BEQ, addressingMode: this.ZP0 },
+            { name: 'BEQ', operation: this.BEQ, addressingMode: this.REL },
             { name: 'SBC', operation: this.SBC, addressingMode: this.IZY },
             { name: 'STP', operation: this.STP, addressingMode: this.IMP },
             { name: 'ISC', operation: this.ISC, addressingMode: this.IZY },
@@ -297,7 +297,26 @@ class nes6502 {
             { name: 'INC', operation: this.INC, addressingMode: this.ABX },
             { name: 'ISC', operation: this.ISC, addressingMode: this.ABX }, // FF
         ];
+        this.count = 0;
         this._bus = bus;
+    }
+    get a() {
+        return this._a;
+    }
+    set a(v) {
+        this._a = v & 0xff;
+    }
+    get x() {
+        return this._x;
+    }
+    set x(v) {
+        this._x = v & 0xff;
+    }
+    get y() {
+        return this._y;
+    }
+    set y(v) {
+        this._y = v & 0xff;
     }
     // Addressing Modes
     NUL() { } // Dummy Instruction/Adressing mode.
@@ -314,13 +333,16 @@ class nes6502 {
     IMM() {
         // fetch value
         this.microCodeStack.push(() => {
-            this._bus.read(this.pc++);
             this.pc++;
+            this._bus.read(this.pc);
         });
     }
     ZP0() {
         // fetch address
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._bus.read(this.pc);
+        });
         // fetch value from address
         this.microCodeStack.push(() => {
             this._bus.read(this._bus.data & 0xff);
@@ -328,7 +350,10 @@ class nes6502 {
         });
     }
     _ZPI(reg) {
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._bus.read(this.pc);
+        });
         // TODO: check that this is how the 6502 behaves, previous supposition was that we could store the result
         // of this operation in the address bus.
         this.microCodeStack.push(() => this._t = this._bus.data + reg);
@@ -342,11 +367,15 @@ class nes6502 {
     }
     ABS() {
         // next two bytes, lo byte first.
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._bus.read(this.pc);
+        });
         // the operation can get the address with this._t + (this._bus.data << 8)
         this.microCodeStack.push(() => {
             this._t = this._bus.data;
-            this._bus.read(this.pc++);
+            this.pc++;
+            this._bus.read(this.pc);
         });
     }
     REL() {
@@ -354,13 +383,20 @@ class nes6502 {
         // we can only branch within the same page.
         // we will allow the branching instructions do the actual addressing
         // which is how it seems to be done in the actual hardware.
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._bus.read(this.pc);
+        });
     }
     IND() {
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._bus.read(this.pc);
+        });
         this.microCodeStack.push(() => {
             this._t = this._bus.data;
-            this._bus.read(this.pc++);
+            this.pc++;
+            this._bus.read(this.pc);
         });
         this.microCodeStack.push(() => this._bus.read(this._t + (this._bus.data << 8)));
         this.microCodeStack.push(() => {
@@ -371,10 +407,14 @@ class nes6502 {
         });
     }
     _ABI(reg) {
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._bus.read(this.pc);
+        });
         this.microCodeStack.push(() => {
             this._t = this._bus.data;
-            this._bus.read(this.pc++);
+            this.pc++;
+            this._bus.read(this.pc);
         });
         this.microCodeStack.push(() => {
             const lo = this._t + reg;
@@ -394,7 +434,10 @@ class nes6502 {
         this._ABI(this.y);
     }
     IZX() {
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._bus.read(this.pc);
+        });
         // the 6502 first reads from arg on page 0, apparently using the address bus to store the value before adding the x register.
         this.microCodeStack.push(() => this._bus.read(this._bus.data & 0xff));
         this.microCodeStack.push(() => {
@@ -411,10 +454,14 @@ class nes6502 {
         });
     }
     IZY() {
-        this.microCodeStack.push(() => this._bus.read(this.pc++));
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._bus.read(this.pc);
+        });
         this.microCodeStack.push(() => {
             this._t = this._bus.data;
-            this._bus.read(this.pc++);
+            this.pc++;
+            this._bus.read(this.pc);
         });
         this.microCodeStack.push(() => this._bus.read(this._t + (this._bus.data << 8)));
         this.microCodeStack.push(() => {
@@ -449,10 +496,11 @@ class nes6502 {
         this.microCodeStack.push(() => {
             this.a &= this._bus.data;
             this.testNZFlags(this.a);
+            this.pc++;
         });
     }
     ASL() {
-        var _a;
+        var _b;
         let result = 0;
         const p = this;
         function setFlags(result) {
@@ -460,7 +508,7 @@ class nes6502 {
             p.setFlag(Flags.Z, !result);
             p.setFlag(Flags.C, result & 0x100); // test bit 8
         }
-        if (((_a = this._fetch) === null || _a === void 0 ? void 0 : _a.addressingMode) === this.ACC) {
+        if (((_b = this._fetch) === null || _b === void 0 ? void 0 : _b.addressingMode) === this.ACC) {
             this.microCodeStack.push(() => {
                 result = this.a << 1;
                 this.a = result & 0xff;
@@ -477,8 +525,8 @@ class nes6502 {
         }
     }
     LSR() {
-        var _a;
-        if (((_a = this._fetch) === null || _a === void 0 ? void 0 : _a.addressingMode) === this.ACC) {
+        var _b;
+        if (((_b = this._fetch) === null || _b === void 0 ? void 0 : _b.addressingMode) === this.ACC) {
             this.microCodeStack.push(() => {
                 this.setFlag(Flags.C, this.a & 0x1);
                 this.a = this.a >> 1;
@@ -504,11 +552,12 @@ class nes6502 {
     }
     _BRA(shouldBranch) {
         this.microCodeStack.push(() => {
+            this.pc++;
             if (shouldBranch) {
                 const hi = this.pc & 0xff00;
                 const lo = (this.pc & 0xff) + this._bus.data;
                 // +1 cycle if branch taken
-                this.microCodeStack.push(() => this.pc = hi + (lo & 0xff));
+                this.microCodeStack.push(() => this.pc = hi | (lo & 0xff));
                 // +1 cycle if branch crosses page boundary
                 if (lo > 0xff) {
                     this.microCodeStack.push(() => this.pc = hi + lo);
@@ -583,8 +632,9 @@ class nes6502 {
             this._bus.read(0xffff);
         });
         this.microCodeStack.push(() => {
-            this.pc |= this._bus.data;
+            this.pc |= this._bus.data << 8;
         });
+        throw new Error('Break!');
     }
     _CPA(reg) {
         this.microCodeStack.push(() => {
@@ -594,6 +644,7 @@ class nes6502 {
             this.setFlag(Flags.N, 1);
             this.setFlag(Flags.Z, (result & 0xff));
             this.setFlag(Flags.C, result & 0xff00);
+            this.pc++;
         });
     }
     CMP() {
@@ -650,7 +701,7 @@ class nes6502 {
     }
     JMP() {
         this.microCodeStack.push(() => {
-            this.pc = this._t + (this._bus.data << 8);
+            this.pc = this._t | (this._bus.data << 8);
         });
     }
     JSR() {
@@ -669,7 +720,8 @@ class nes6502 {
                        byte to PCH
         */
         this.microCodeStack.push(() => {
-            this._bus.read(this.pc++);
+            this.pc++;
+            this._bus.read(this.pc);
         });
         this.microCodeStack.push(() => {
             this._bus.read(0x100 | this.stackPointer);
@@ -680,29 +732,37 @@ class nes6502 {
             this._bus.write(this._bus.addr, this.pc >> 8);
         });
         this.microCodeStack.push(() => {
-            this._bus.write(this._bus.addr--, this.pc & 0xff);
+            this._bus.addr--;
+            this._bus.write(this._bus.addr, this.pc & 0xff);
         });
         this.microCodeStack.push(() => {
             this._bus.read(this.pc);
+            this._t = this.stackPointer;
             this.stackPointer = this._bus.addr & 0xff;
         });
         this.microCodeStack.push(() => {
-            this.pc = (this._bus.data << 8) | (this.stackPointer);
+            this.pc = (this._bus.data << 8) | (this._t & 0xff);
         });
     }
     LDA() {
         this.microCodeStack.push(() => {
             this.a = this._bus.data;
+            this.testNZFlags(this.a);
+            this.pc++;
         });
     }
     LDX() {
         this.microCodeStack.push(() => {
             this.x = this._bus.data;
+            this.testNZFlags(this.x);
+            this.pc++;
         });
     }
     LDY() {
         this.microCodeStack.push(() => {
             this.y = this._bus.data;
+            this.testNZFlags(this.y);
+            this.pc++;
         });
     }
     NOP() {
@@ -763,7 +823,7 @@ class nes6502 {
         });
     }
     ROL() {
-        var _a;
+        var _b;
         const p = this;
         function rotate(v) {
             let result = v << 1;
@@ -779,7 +839,7 @@ class nes6502 {
             p.testNZFlags(result);
             return result;
         }
-        if (((_a = this._fetch) === null || _a === void 0 ? void 0 : _a.addressingMode) === this.ACC) {
+        if (((_b = this._fetch) === null || _b === void 0 ? void 0 : _b.addressingMode) === this.ACC) {
             this.microCodeStack.push(() => {
                 this.a = rotate(this.a) & 0xff;
             });
@@ -792,7 +852,7 @@ class nes6502 {
         }
     }
     ROR() {
-        var _a;
+        var _b;
         const p = this;
         function rotate(v) {
             let result = v >> 1;
@@ -808,7 +868,7 @@ class nes6502 {
             p.testNZFlags(result);
             return result;
         }
-        if (((_a = this._fetch) === null || _a === void 0 ? void 0 : _a.addressingMode) === this.ACC) {
+        if (((_b = this._fetch) === null || _b === void 0 ? void 0 : _b.addressingMode) === this.ACC) {
             this.microCodeStack.push(() => {
                 this.a = rotate(this.a) & 0xff;
             });
@@ -1073,6 +1133,7 @@ class nes6502 {
             const microCode = this.microCodeStack.shift();
             // we check for falsy, although this should never happen.
             microCode && microCode();
+            // console.log(`${this._bus.rwFlag} ${this._bus.addr.toString(16)} ${this._bus.data.toString(16)}`);
             // after every op is done, fetch next instruction.
             if (!this.microCodeStack.length) {
                 this._bus.read(this.pc);
@@ -1080,8 +1141,13 @@ class nes6502 {
         }
         else {
             this._fetch = this.opCodeLookup[this._bus.data];
-            this._fetch.addressingMode();
-            this._fetch.operation();
+            this.count++;
+            console.log(`${this.count} ${this._bus.addr.toString(16)} ${this._bus.data.toString(16)} ${this._fetch.name}`);
+            this._fetch.addressingMode.call(this);
+            this._fetch.operation.call(this);
+            const microCode = this.microCodeStack.shift();
+            // we check for falsy, although this should never happen.
+            microCode && microCode();
         }
     }
     getFlag(flag) {

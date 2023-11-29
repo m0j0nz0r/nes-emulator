@@ -6,4 +6,5 @@ const emulator_1 = require("./components/emulator");
 const emulator = new emulator_1.Emulator();
 const rom = fs.readFileSync(path.join(__dirname, 'testRoms/nestest.nes'));
 emulator.loadCartridge(rom);
+emulator.start();
 //# sourceMappingURL=index.js.map

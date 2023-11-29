@@ -8,8 +8,8 @@ export declare class Emulator {
     private _ppu;
     private _cartridge;
     private _emulation?;
-    private start;
-    private stop;
+    start(): void;
+    stop(): void;
     clock(): void;
     loadCartridge(rom: Buffer): void;
 }

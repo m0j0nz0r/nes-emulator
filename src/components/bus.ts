@@ -18,8 +18,7 @@ export class Bus {
     }
 
     data: number;
-    rwFlag: ReadFlagState = ReadFlagState.read; // writing when true;
-
+    rwFlag: ReadFlagState = ReadFlagState.read;
     read(addr: number) {
         this._addr = addr;
         this.rwFlag = ReadFlagState.read;

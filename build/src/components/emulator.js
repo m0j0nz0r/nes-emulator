@@ -16,16 +16,33 @@ class Emulator {
         this._ppu = new ppu_1.PPU(this._bus, this._graphicBus);
     }
     start() {
+        this._cpu.pc = 0xc000;
+        this._bus.read(this._cpu.pc);
         this._emulation = setInterval(() => this.clock(), 1000 / this._cpu.clockSpeed);
     }
     stop() {
         clearTimeout(this._emulation);
     }
     clock() {
-        this._ram.clock();
-        this._cartridge.clock();
-        this._cpu.clock();
-        this._ppu.clock();
+        try {
+            this._ram.clock();
+            this._cartridge.clock();
+            this._cpu.clock();
+            this._ppu.clock();
+        }
+        catch (e) {
+            this._cpu.microCodeStack.push(() => {
+                this._bus.read(0x2);
+            });
+            this._cpu.microCodeStack.push(() => {
+                console.log('Error 1: ', this._bus.data.toString(16));
+                this._bus.read(0x3);
+            });
+            this._cpu.microCodeStack.push(() => {
+                console.log('Error 2: ', this._bus.data.toString(16));
+                this.stop();
+            });
+        }
     }
     loadCartridge(rom) {
         var _a;

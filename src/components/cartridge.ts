@@ -12,8 +12,8 @@ export class Cartridge {
     private _mainBus: Bus;
     private _graphicsBus: Bus;
     private _trainer?: RAM;
+    private _prgRom?: RAM;
     private _handleGraphicsBus() {
-        throw new Error("Method not implemented.");
     }
     private _handleMainBus() {
         // make sure we are on our addressable space.
@@ -21,22 +21,46 @@ export class Cartridge {
             return;
         }
 
-        // We have 8 instrucitons mirrored over the 8kb addressable range.
+        // We have 8 instructions mirrored over the 8kb addressable range.
         const addr = this._mainBus.addr;
     }
 
     private _headers?: Headers;
     public clock() {
         this._trainer?.clock();
+        this._prgRom?.clock();
         this._handleMainBus();
         this._handleGraphicsBus();
     }
     public load(rom: Buffer) {
+        let offset = 16;
         this._headers = new Headers(rom);
         const hasTrainer = this._headers.flags6.hasTrainer;
 
         if (hasTrainer) {
-            this._trainer = new RAM(this._mainBus, rom.subarray(16, 16 + 511), {minAddr: 0x7000, maxAddr: 0x71ff})
+            this._trainer = new RAM(this._mainBus, rom.subarray(offset, offset + 511), {minAddr: 0x7000, maxAddr: 0x71ff})
+            offset += 512;
+        }
+
+        // load PRG_ROM
+        this._prgRom = new RAM(
+            this._mainBus,
+            rom.subarray(offset, this._headers.prgRomSize),
+            {minAddr: 0x8000, maxAddr: 0xffff},
+            this._headers.prgRomSize > 0x4000 ? 0x7fff : 0x3fff
+            );
+        
+        offset += this._headers.prgRomSize;
+
+        // load CHR_ROM
+        if (this._headers.chrRomSize) {
+            const chrRom = rom.subarray(offset, this._headers.chrRomSize);
+            offset += this._headers.chrRomSize;    
+        }
+
+        // load misc rom
+        if (offset !== rom.byteLength) {
+            const misc =  rom.subarray(offset, rom.byteLength);
         }
     }
 }
