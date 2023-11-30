@@ -21,7 +21,7 @@ class nes6502 {
         this._y = 0x0; // Y register
         this._sp = 0xfd;
         this.pc = 0x0; // program counter
-        this.status = 0x0 | Flags.U; // status register
+        this._p = 0x24 | Flags.U | Flags.I; // status register
         this.microCodeStack = []; // currently executing micro code
         this.opCodeLookup = [
             // 00
@@ -273,7 +273,7 @@ class nes6502 {
             { name: 'ISC', operation: this.ISC, addressingMode: this.ZP0 },
             { name: 'INX', operation: this.INX, addressingMode: this.IMP },
             { name: 'SBC', operation: this.SBC, addressingMode: this.IMM },
-            { name: 'NOP', operation: this.DEX, addressingMode: this.IMP },
+            { name: 'NOP', operation: this.NOP, addressingMode: this.IMP },
             { name: 'SBC', operation: this.SBC, addressingMode: this.IMM },
             { name: 'CPX', operation: this.CPX, addressingMode: this.ABS },
             { name: 'SBC', operation: this.SBC, addressingMode: this.ABS },
@@ -323,6 +323,12 @@ class nes6502 {
     }
     set stackPointer(v) {
         this._sp = v & 0xff;
+    }
+    get status() {
+        return this._p;
+    }
+    set status(v) {
+        this._p = (v & 0xff) | Flags.U;
     }
     // Addressing Modes
     NUL() { } // Dummy Instruction/Adressing mode.
@@ -491,6 +497,7 @@ class nes6502 {
             // formula taken from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
             this.setFlag(Flags.V, (m ^ result) & (n ^ result) & 0x80);
             this.testNZFlags(result);
+            this.pc++;
         });
     }
     SBC() {
@@ -649,10 +656,9 @@ class nes6502 {
         this.microCodeStack.push(() => {
             const m = reg;
             const n = this._bus.data ^ 0xff;
-            const result = m + n + this.getFlag(Flags.C);
-            this.setFlag(Flags.N, 1);
-            this.setFlag(Flags.Z, (result & 0xff));
-            this.setFlag(Flags.C, result & 0xff00);
+            const result = m + n + 1;
+            this.setFlag(Flags.C, result & 0x100);
+            this.testNZFlags(result);
             this.pc++;
         });
     }
@@ -685,6 +691,7 @@ class nes6502 {
         this.microCodeStack.push(() => {
             this.a ^= this._bus.data;
             this.testNZFlags(this.a);
+            this.pc++;
         });
     }
     CLC() {
@@ -782,6 +789,7 @@ class nes6502 {
         this.microCodeStack.push(() => {
             this.a |= this._bus.data;
             this.testNZFlags(this.a);
+            this.pc++;
         });
     }
     TAX() {
@@ -952,6 +960,7 @@ class nes6502 {
         this.microCodeStack.push(() => {
             this.pushStack(this.a);
         });
+        this.microCodeStack.push(() => { });
     }
     PLA() {
         this.microCodeStack.push(() => {
@@ -959,12 +968,15 @@ class nes6502 {
         });
         this.microCodeStack.push(() => {
             this.a = this._bus.data;
+            this.testNZFlags(this.a);
         });
     }
     PHP() {
         this.microCodeStack.push(() => {
             this.pushStack(this.status);
+            this.microCodeStack.push(() => { });
         });
+        this.microCodeStack.push(() => { });
     }
     PLP() {
         this.microCodeStack.push(() => {
@@ -1154,7 +1166,25 @@ class nes6502 {
         else {
             this._fetch = this.opCodeLookup[this._bus.data];
             this.count++;
-            console.log(`${this.count} ${this._bus.addr.toString(16)} ${this._bus.data.toString(16)} ${this._fetch.name}`);
+            let log = '';
+            log += this.count.toString().padStart(4, ' ');
+            log += ' ' + this._bus.addr.toString(16).toUpperCase().padStart(4, '0');
+            log += ' ' + this._bus.data.toString(16).toUpperCase().padStart(2, '0');
+            log += ' ' + this._fetch.name;
+            log += ' A:' + this.a.toString(16).toUpperCase().padStart(2, '0');
+            log += ' X:' + this.x.toString(16).toUpperCase().padStart(2, '0');
+            log += ' Y:' + this.y.toString(16).toUpperCase().padStart(2, '0');
+            log += ' P:' + this.status.toString(16).toUpperCase().padStart(2, '0');
+            log += ' SP:' + this.stackPointer.toString(16).toUpperCase().padStart(2, '0');
+            log += ' C:' + this.getFlag(Flags.C);
+            log += ' Z:' + this.getFlag(Flags.Z);
+            log += ' I:' + this.getFlag(Flags.I);
+            log += ' D:' + this.getFlag(Flags.D);
+            log += ' B:' + this.getFlag(Flags.B);
+            log += ' U:' + this.getFlag(Flags.U);
+            log += ' V:' + this.getFlag(Flags.V);
+            log += ' N:' + this.getFlag(Flags.N);
+            console.log(log);
             this._fetch.addressingMode.call(this);
             this._fetch.operation.call(this);
             const microCode = this.microCodeStack.shift();
@@ -1174,8 +1204,8 @@ class nes6502 {
         }
     }
     pushStack(value) {
-        this._bus.write(0x100 | this.stackPointer, value);
         this.stackPointer--;
+        this._bus.write(0x100 | this.stackPointer, value);
     }
     popStack() {
         this._bus.read(0x100 | this.stackPointer);
@@ -1183,7 +1213,7 @@ class nes6502 {
     }
     testNZFlags(v) {
         this.setFlag(Flags.N, v & 0x80);
-        this.setFlag(Flags.Z, !v);
+        this.setFlag(Flags.Z, !(v & 0xff));
     }
 }
 exports.nes6502 = nes6502;

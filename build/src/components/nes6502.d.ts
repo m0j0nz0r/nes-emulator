@@ -33,7 +33,9 @@ export declare class nes6502 {
     get stackPointer(): number;
     set stackPointer(v: number);
     pc: number;
-    status: number;
+    private _p;
+    get status(): number;
+    set status(v: number);
     microCodeStack: Function[];
     opCodeLookup: Instruction[];
     NUL(): void;
