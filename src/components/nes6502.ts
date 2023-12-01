@@ -1,4 +1,5 @@
 import { Bus } from './bus';
+import { EventHandler } from './eventHandler';
 enum Flags {
     C = (1 << 0), // carry bit
     Z = (1 << 1), // zero
@@ -14,15 +15,14 @@ interface Instruction {
     operation: () => void,
     addressingMode: () => void
 }
-export class nes6502 {
+export class nes6502 extends EventHandler{
     constructor (bus: Bus) {
+        super();
         this._bus = bus;
     }
     private _bus: Bus;
     private _t: number = 0; // temporary private register to store bytes between cycles
     private _fetch?: Instruction;
-
-
     clockSpeed = 21441960; // hz
 
     private _a: number = 0x0; // accumulator register
@@ -1244,7 +1244,7 @@ export class nes6502 {
             // we check for falsy, although this should never happen.
             microCode && microCode();
 
-            // console.log(`${this._bus.rwFlag} ${this._bus.addr.toString(16)} ${this._bus.data.toString(16)}`);
+            // this.logger.log(`${this._bus.rwFlag} ${this._bus.addr.toString(16)} ${this._bus.data.toString(16)}`);
 
             // after every op is done, fetch next instruction.
             if (!this.microCodeStack.length) {
@@ -1271,7 +1271,7 @@ export class nes6502 {
             log += ' U:' + this.getFlag(Flags.U);
             log += ' V:' + this.getFlag(Flags.V);
             log += ' N:' + this.getFlag(Flags.N);
-            console.log(log);
+            this.logger.log(log);
             this._fetch.addressingMode.call(this);
             this._fetch.operation.call(this);
 

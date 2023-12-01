@@ -3,9 +3,10 @@ import { RAM } from './RAM';
 import { nes6502 } from './nes6502';
 import { Cartridge } from './cartridge';
 import { PPU } from './ppu';
-
-export class Emulator {
+import { EventHandler } from './eventHandler';
+export class Emulator extends EventHandler {
     constructor () {
+        super();
         this._bus = new Bus();
         this._graphicBus = new Bus();
         this._ram = new RAM(this._bus);
@@ -41,11 +42,11 @@ export class Emulator {
                 this._bus.read(0x2);
             });
             this._cpu.microCodeStack.push(() => {
-                console.log('Error 1: ', this._bus.data.toString(16));
+                this.logger.log('Error 1: ', this._bus.data.toString(16));
                 this._bus.read(0x3);
             });
             this._cpu.microCodeStack.push(() => {
-                console.log('Error 2: ', this._bus.data.toString(16));
+                this.logger.log('Error 2: ', this._bus.data.toString(16));
                 this.stop();
             });
         }
