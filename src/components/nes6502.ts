@@ -1,5 +1,5 @@
 import { Bus } from './bus';
-import { EventHandler } from './eventHandler';
+import { EventHandler, Logger } from './eventHandler';
 enum Flags {
     C = (1 << 0), // carry bit
     Z = (1 << 1), // zero
@@ -16,8 +16,8 @@ interface Instruction {
     addressingMode: () => void
 }
 export class nes6502 extends EventHandler{
-    constructor (bus: Bus) {
-        super();
+    constructor (bus: Bus, logger: Logger = console) {
+        super(logger);
         this._bus = bus;
     }
     private _bus: Bus;

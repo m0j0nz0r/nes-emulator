@@ -3,14 +3,14 @@ import { RAM } from './RAM';
 import { nes6502 } from './nes6502';
 import { Cartridge } from './cartridge';
 import { PPU } from './ppu';
-import { EventHandler } from './eventHandler';
+import { EventHandler, Logger } from './eventHandler';
 export class Emulator extends EventHandler {
-    constructor () {
-        super();
+    constructor (logger: Logger = console) {
+        super(logger);
         this._bus = new Bus();
         this._graphicBus = new Bus();
         this._ram = new RAM(this._bus);
-        this._cpu = new nes6502(this._bus);
+        this._cpu = new nes6502(this._bus, logger);
         this._cartridge = new Cartridge(this._bus, this._graphicBus);
         this._ppu = new PPU(this._bus, this._graphicBus);
     }

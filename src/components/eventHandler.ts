@@ -1,12 +1,12 @@
-interface Logger {
+export interface Logger {
     log: (message?:any, ...optionalParams: any[]) => void
 }
 
 type EventHandlerFunction = (eventObject?:any) => void;
 
 export class EventHandler {
-    constructor () {
-        this.logger = console;
+    constructor (logger: Logger = console) {
+        this.logger = logger;
     }
 
     private _eventDictionary: { [eventId: string]: EventHandlerFunction[]} = {};
