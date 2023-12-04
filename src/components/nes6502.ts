@@ -418,6 +418,7 @@ export class nes6502 extends EventHandler{
         this.microCodeStack.push(() => {
             this.pc++;
             this._bus.read(this.pc);
+            this.pc++;
         });
     }
     ZP0() { // Zero Page            d
@@ -460,6 +461,7 @@ export class nes6502 extends EventHandler{
             this._t = this._bus.data;
             this.pc++;
             this._bus.read(this.pc);
+            this.pc++;
         });
     }
     REL() { // Relative             label
@@ -576,20 +578,28 @@ export class nes6502 extends EventHandler{
             this.setFlag(Flags.V, (m ^ result) & (n ^result) & 0x80);
 
             this.testNZFlags(result);
-            this.pc++;
         })
     }
     SBC() { // Substract with carry
         // substraction works the same as addition with flipped bits on the second argument
-        this._bus.data = ~this._bus.data;
-        this.ADC();
+        this.microCodeStack.push(() => {
+            const m = this.a;
+            const n = ~this._bus.data;
+            const result = m + n + this.getFlag(Flags.C);
+            this.a = result & 0xff;
+
+            this.setFlag(Flags.C, ~result & 0x100);
+            // formula taken from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
+            this.setFlag(Flags.V, (m ^ result) & (n ^ result) & 0x80);
+
+            this.testNZFlags(result);
+        })
     }
     AND() { // Bitwise AND with Acc
         this.microCodeStack.push(() => {
             this.a &= this._bus.data;
 
             this.testNZFlags(this.a);
-            this.pc++;
         });
     }
     ASL() { // Arithmetic shift(1) left
@@ -738,7 +748,6 @@ export class nes6502 extends EventHandler{
             const result = m + n + 1;
             this.setFlag(Flags.C, result & 0x100);
             this.testNZFlags(result);
-            this.pc++;
         });
     }
     CMP() { // compare A
@@ -770,7 +779,6 @@ export class nes6502 extends EventHandler{
         this.microCodeStack.push(() => {
             this.a ^= this._bus.data;
             this.testNZFlags(this.a);
-            this.pc++;
         });
     }
     CLC() { // clear carry
@@ -845,22 +853,19 @@ export class nes6502 extends EventHandler{
         this.microCodeStack.push(() => {
             this.a = this._bus.data;
             this.testNZFlags(this.a);
-            this.pc++;
-        })
+        });
     }
     LDX() { // Load X
         this.microCodeStack.push(() => {
             this.x = this._bus.data;
             this.testNZFlags(this.x);
-            this.pc++;
         });
     }
     LDY() { // Load Y
         this.microCodeStack.push(() => {
             this.y = this._bus.data;
             this.testNZFlags(this.y);
-            this.pc++;
-        })
+        });
     }
     NOP() { // no operation
         this.microCodeStack.push(() => {});
@@ -869,7 +874,6 @@ export class nes6502 extends EventHandler{
         this.microCodeStack.push(() => {
             this.a |= this._bus.data;
             this.testNZFlags(this.a);
-            this.pc++
         });
     }
     TAX() { // Transfer A to X
@@ -1013,7 +1017,8 @@ export class nes6502 extends EventHandler{
         this.microCodeStack.push(() => {
             this._bus.write(this._bus.addr, v);
         });
-        this.microCodeStack.push(() => {});
+        this.microCodeStack.push(() => {
+        });
     }
     STA() { // Store A
         this._STO(this.a);
@@ -1032,6 +1037,7 @@ export class nes6502 extends EventHandler{
     TSX() { // Transfer Stack Pointer to X 
         this.microCodeStack.push(() => {
             this.x = this.stackPointer;
+            this.testNZFlags(this.x);
         });
     }
     PHA() { // Push Accumulator
@@ -1051,7 +1057,8 @@ export class nes6502 extends EventHandler{
     }
     PHP() { // Push Processor Status
         this.microCodeStack.push(() => {
-            this.pushStack(this.status);
+
+            this.pushStack(this.status | Flags.B);
             this.microCodeStack.push(() => {});
         });
         this.microCodeStack.push(() => {});
@@ -1062,6 +1069,7 @@ export class nes6502 extends EventHandler{
         });
         this.microCodeStack.push(() => {
             this.status = this._bus.data;
+            this.setFlag(Flags.B, 0);
         });
     }
 
