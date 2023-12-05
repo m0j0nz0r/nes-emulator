@@ -6,7 +6,7 @@ export enum ReadFlagState {
 export class Bus {
     constructor() {
         this._addr = 0;
-        this.data = 0;
+        this._data = 0;
     }
     private _addr: number;
 
@@ -17,7 +17,14 @@ export class Bus {
         return this._addr;
     }
 
-    data: number;
+    private _data: number;
+    set data(v: number) {
+        this._data = v & 0xff;
+    }
+    get data(): number {
+        return this._data;
+    }
+
     rwFlag: ReadFlagState = ReadFlagState.read;
     read(addr: number) {
         this._addr = addr;

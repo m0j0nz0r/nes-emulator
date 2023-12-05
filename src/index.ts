@@ -21,45 +21,53 @@ class CustomLogger implements Logger {
             const msgArray = finalMessage.trim().split(' ');
             const idx = Number.parseInt(msgArray[0]) - 1;
             const log = logger._targetLog[idx];
+            if (!log) {
+                throw new Error('No log found.');
+            }
             // current addr
-            if (msgArray[1] !== log?.substring(0, 4)) {
-                return 'ADDR ' + log;
+            if (msgArray[1] !== log.substring(0, 4)) {
+                throw new Error('ADDR ' + log);
             }
             // code
-            if (msgArray[2] !== log?.substring(6, 8)) {
-                return 'CODE ' + log;
+            if (msgArray[2] !== log.substring(6, 8)) {
+                throw new Error('CODE ' + log);
             }
             // op
-            if (msgArray[3] !== log?.substring(16, 19)) {
-                return 'OP ' + log;
+            if (msgArray[3] !== log.substring(16, 19)) {
+                throw new Error('OP ' + log);
             }
             // A
-            if (msgArray[4].split(':')[1] !== log?.substring(50, 52)) {
-                return 'A ' + log;
+            if (msgArray[4].split(':')[1] !== log.substring(50, 52)) {
+                throw new Error('A ' + log);
             }
             // X
-            if (msgArray[5].split(':')[1] !== log?.substring(55, 57)) {
-                return 'X ' + log;
+            if (msgArray[5].split(':')[1] !== log.substring(55, 57)) {
+                throw new Error('X ' + log);
             }
             // Y
-            if (msgArray[6].split(':')[1] !== log?.substring(60, 62)) {
-                return 'Y ' + log;
+            if (msgArray[6].split(':')[1] !== log.substring(60, 62)) {
+                throw new Error('Y ' + log);
             }
             // P
-            if (msgArray[7].split(':')[1] !== log?.substring(65, 67)) {
-                return 'P ' + log;
+            if (msgArray[7].split(':')[1] !== log.substring(65, 67)) {
+                throw new Error('P ' + log);
             }
             // SP
-            if (msgArray[8].split(':')[1] !== log?.substring(71, 73)) {
-                return 'SP ' + log;
+            if (msgArray[8].split(':')[1] !== log.substring(71, 73)) {
+                throw new Error('SP ' + log);
             }
-            return '';
+            return log;
         }
-        const check = checkLog(finalMessage);
-        if (check) {
-            return console.log('%c' + finalMessage + ' | ' + check, 'color:red');
+        try {
+            const check = checkLog(finalMessage);
+            if (check) {
+            }
+            console.log(finalMessage + ' | ' + check);
+    
+        } catch (e) {
+            console.log('%c' + finalMessage + ' | ' + e, 'color:red');
+            throw new Error();
         }
-        console.log(finalMessage);
     };
 }
 const emulator = new Emulator(new CustomLogger());

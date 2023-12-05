@@ -42,11 +42,11 @@ export class Emulator extends EventHandler {
                 this._bus.read(0x2);
             });
             this._cpu.microCodeStack.push(() => {
-                this.logger.log('Error 1: ', this._bus.data.toString(16));
+                console.log('Error 1: ', this._bus.data.toString(16));
                 this._bus.read(0x3);
             });
             this._cpu.microCodeStack.push(() => {
-                this.logger.log('Error 2: ', this._bus.data.toString(16));
+                console.log('Error 2: ', this._bus.data.toString(16));
                 this.stop();
             });
         }
