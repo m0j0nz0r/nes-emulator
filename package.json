@@ -1,8 +1,9 @@
 {
   "devDependencies": {
+    "@types/nanotimer": "^0.3.2",
+    "@types/node": "20.8.2",
     "gts": "^5.2.0",
-    "typescript": "~5.2.0",
-    "@types/node": "20.8.2"
+    "typescript": "~5.2.0"
   },
   "scripts": {
     "lint": "gts lint",
@@ -14,5 +15,8 @@
     "posttest": "npm run lint",
     "watch": "tsc -w",
     "run": "node build/src/index.js"
+  },
+  "dependencies": {
+    "nanotimer": "^0.3.15"
   }
 }

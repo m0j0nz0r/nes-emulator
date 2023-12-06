@@ -1,11 +1,13 @@
+import * as NanoTimer from 'nanotimer';
 import { Bus } from './bus';
 import { RAM } from './RAM';
 import { nes6502 } from './nes6502';
 import { Cartridge } from './cartridge';
 import { PPU } from './ppu';
 import { EventHandler, Logger } from './eventHandler';
+
 export class Emulator extends EventHandler {
-    constructor (logger: Logger = console) {
+    constructor (logger?: Logger) {
         super(logger);
         this._bus = new Bus();
         this._graphicBus = new Bus();
@@ -13,6 +15,7 @@ export class Emulator extends EventHandler {
         this._cpu = new nes6502(this._bus, logger);
         this._cartridge = new Cartridge(this._bus, this._graphicBus);
         this._ppu = new PPU(this._bus, this._graphicBus);
+        this._emulation = new NanoTimer();
     }
     private _bus: Bus;
     private _graphicBus: Bus;
@@ -20,17 +23,26 @@ export class Emulator extends EventHandler {
     private _cpu: nes6502;
     private _ppu: PPU;
     private _cartridge: Cartridge;
-    private _emulation?: NodeJS.Timeout;
+    private _emulation: NanoTimer;
+
+    public cycle: number = 0;
 
     public start() {
+        // normal emulation speed should be 21441960 Hz
+
         this._cpu.pc = 0xc000;
         this._bus.read(this._cpu.pc);
-        this._emulation = setInterval(() => this.clock(), 1000/this._cpu.clockSpeed)
+        this._emulation.setInterval(() => {
+            this.clock();
+        }, '', '46n');
     }
     public stop() {
-        clearTimeout(this._emulation);
+        this._emulation.clearInterval();
+        this.broadcast('stop');
     }
     public clock () {
+        this.cycle++;
+
         try {
             this._ram.clock();
             this._cartridge.clock();

@@ -27,11 +27,11 @@ export class Bus {
 
     rwFlag: ReadFlagState = ReadFlagState.read;
     read(addr: number) {
-        this._addr = addr;
+        this.addr = addr;
         this.rwFlag = ReadFlagState.read;
     }
     write(addr: number, data: number) {
-        this._addr = addr;
+        this.addr = addr;
         this.data = data;
         this.rwFlag = ReadFlagState.write;
     }

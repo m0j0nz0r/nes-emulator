@@ -4,8 +4,12 @@ export interface Logger {
 
 type EventHandlerFunction = (eventObject?:any) => void;
 
+class DummyLogger implements Logger {
+    log() {}
+}
+
 export class EventHandler {
-    constructor (logger: Logger = console) {
+    constructor (logger: Logger = new DummyLogger()) {
         this.logger = logger;
     }
 

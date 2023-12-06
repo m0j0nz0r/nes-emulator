@@ -17,6 +17,8 @@ class CustomLogger implements Logger {
             optionalParams.reduce((pv, cv) => pv + cv, finalMessage);
         }
 
+        finalMessage += ` CYC:${emulator.cycle}`;
+
         function checkLog(finalMessage: string): string {
             const msgArray = finalMessage.trim().split(' ');
             const idx = Number.parseInt(msgArray[0]) - 1;
@@ -56,6 +58,9 @@ class CustomLogger implements Logger {
             if (msgArray[8].split(':')[1] !== log.substring(71, 73)) {
                 throw new Error('SP ' + log);
             }
+            if (msgArray[9].split(':')[1].trim() !== log.substring(90).trim()) {
+                throw new Error('CYC ' + log);
+            }
             return log;
         }
         try {
@@ -73,4 +78,7 @@ class CustomLogger implements Logger {
 const emulator = new Emulator(new CustomLogger());
 const rom = fs.readFileSync(path.join(__dirname, 'testRoms/nestest.nes'));
 emulator.loadCartridge(rom);
+emulator.cycle = 6;
+console.time('Execution');
+emulator.on('stop', () => console.timeEnd('Execution'));
 emulator.start();

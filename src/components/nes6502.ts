@@ -16,14 +16,13 @@ interface Instruction {
     addressingMode: () => void
 }
 export class nes6502 extends EventHandler{
-    constructor (bus: Bus, logger: Logger = console) {
+    constructor (bus: Bus, logger?: Logger) {
         super(logger);
         this._bus = bus;
     }
     private _bus: Bus;
     private _t: number = 0; // temporary private register to store bytes between cycles
     private _fetch?: Instruction;
-    clockSpeed = 21441960; // hz
 
     private _a: number = 0x0; // accumulator register
     get a(): number {
@@ -199,7 +198,7 @@ export class nes6502 extends EventHandler{
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZP0}, // 64
         { name: 'ADC', operation: this.ADC, addressingMode: this.ZP0}, // 65
         { name: 'ROR', operation: this.ROR, addressingMode: this.ZP0}, // 66
-        { name: 'ARR', operation: this.ARR, addressingMode: this.ZP0}, // 67
+        { name: 'RRA', operation: this.RRA, addressingMode: this.ZP0}, // 67
 
         { name: 'PLA', operation: this.PLA, addressingMode: this.IMP}, // 68
         { name: 'ADC', operation: this.ADC, addressingMode: this.IMM}, // 69
@@ -335,7 +334,7 @@ export class nes6502 extends EventHandler{
         { name: 'CPY', operation: this.CPY, addressingMode: this.ABS}, // CC
         { name: 'CMP', operation: this.CMP, addressingMode: this.ABS}, // CD
         { name: 'DEC', operation: this.DEC, addressingMode: this.ABS}, // CE
-        { name: 'SCP', operation: this.DCP, addressingMode: this.ABS}, // CF
+        { name: 'DCP', operation: this.DCP, addressingMode: this.ABS}, // CF
         
         // D0
         { name: 'BNE', operation: this.BNE, addressingMode: this.REL}, // D0
@@ -362,12 +361,12 @@ export class nes6502 extends EventHandler{
         { name: 'CPX', operation: this.CPX, addressingMode: this.IMM}, // E0
         { name: 'SBC', operation: this.SBC, addressingMode: this.IZX}, // E1
         { name: 'NOP', operation: this.NOP, addressingMode: this.IMM}, // E2
-        { name: 'ISC', operation: this.ISC, addressingMode: this.IZX}, // E3
+        { name: 'ISB', operation: this.ISB, addressingMode: this.IZX}, // E3
 
         { name: 'CPX', operation: this.CPX, addressingMode: this.ZP0}, // E4
         { name: 'SBC', operation: this.SBC, addressingMode: this.ZP0}, // E5
         { name: 'INC', operation: this.INC, addressingMode: this.ZP0}, // E6
-        { name: 'ISC', operation: this.ISC, addressingMode: this.ZP0}, // E7
+        { name: 'ISB', operation: this.ISB, addressingMode: this.ZP0}, // E7
 
         { name: 'INX', operation: this.INX, addressingMode: this.IMP}, // E8
         { name: 'SBC', operation: this.SBC, addressingMode: this.IMM}, // E9
@@ -377,28 +376,28 @@ export class nes6502 extends EventHandler{
         { name: 'CPX', operation: this.CPX, addressingMode: this.ABS}, // EC
         { name: 'SBC', operation: this.SBC, addressingMode: this.ABS}, // ED
         { name: 'INC', operation: this.INC, addressingMode: this.ABS}, // EE
-        { name: 'ISC', operation: this.ISC, addressingMode: this.ABS}, // EF
+        { name: 'ISB', operation: this.ISB, addressingMode: this.ABS}, // EF
         
         // F0
         { name: 'BEQ', operation: this.BEQ, addressingMode: this.REL}, // F0
         { name: 'SBC', operation: this.SBC, addressingMode: this.IZY}, // F1
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // F2
-        { name: 'ISC', operation: this.ISC, addressingMode: this.IZY}, // F3
+        { name: 'ISB', operation: this.ISB, addressingMode: this.IZY}, // F3
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZPX}, // F4
         { name: 'SBC', operation: this.SBC, addressingMode: this.ZPX}, // F5
         { name: 'INC', operation: this.INC, addressingMode: this.ZPX}, // F6
-        { name: 'ISC', operation: this.ISC, addressingMode: this.ZPX}, // F7
+        { name: 'ISB', operation: this.ISB, addressingMode: this.ZPX}, // F7
 
         { name: 'SED', operation: this.SED, addressingMode: this.IMP}, // F8
         { name: 'SBC', operation: this.SBC, addressingMode: this.ABY}, // F9
         { name: 'NOP', operation: this.NOP, addressingMode: this.IMP}, // FA
-        { name: 'ISC', operation: this.ISC, addressingMode: this.ABY}, // FB
+        { name: 'ISB', operation: this.ISB, addressingMode: this.ABY}, // FB
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ABX}, // FC
         { name: 'SBC', operation: this.SBC, addressingMode: this.ABX}, // FD
         { name: 'INC', operation: this.INC, addressingMode: this.ABX}, // FE
-        { name: 'ISC', operation: this.ISC, addressingMode: this.ABX}, // FF
+        { name: 'ISB', operation: this.ISB, addressingMode: this.ABX}, // FF
     ];
 
     // Addressing Modes
@@ -437,7 +436,10 @@ export class nes6502 extends EventHandler{
         });
         // TODO: check that this is how the 6502 behaves, previous supposition was that we could store the result
         // of this operation in the address bus.
-        this.microCodeStack.push(() => this._t = this._bus.data + reg);
+        this.microCodeStack.push(() => {
+            this.pc++;
+            this._t = this._bus.data + reg;
+        });
         this.microCodeStack.push(() => this._bus.read(this._t & 0xff));
     }
     ZPX() {
@@ -453,7 +455,7 @@ export class nes6502 extends EventHandler{
             this._bus.read(this.pc);
         });
 
-        // the operation can get the address with this._t | (this._bus.data << 8)
+        // the operation can get the address with absread
         this.microCodeStack.push(() => {
             this._t = this._bus.data;
             this.pc++;
@@ -484,13 +486,17 @@ export class nes6502 extends EventHandler{
             this.pc++;
             this._bus.read(this.pc);
         });
-        this.microCodeStack.push(() => this._bus.read(this._t + (this._bus.data << 8)));
+        this.microCodeStack.push(() => {
+            this._bus.read((this._bus.data << 8) | this._t);
+        });
         this.microCodeStack.push(() => {
             this._t = this._bus.data;
             // when fetching from an address at the edge of a page, the 6502 will fetch the hi byte from the beggining of the same page
-            this._bus.read((this._bus.addr & 0xff00) + ((this._bus.addr + 1) & 0xff));
-            this.pc++;
+            this._bus.read((this._bus.addr & 0xff00) | ((this._bus.addr + 1) & 0xff));
         });
+        this.microCodeStack.push(() => {
+            this.absRead();
+        })
     }
     private _ABI(reg: number) { // Absolute Indexed reg   a,reg     val = PEEK(arg + reg)
         this.microCodeStack.push(() => {
@@ -511,7 +517,7 @@ export class nes6502 extends EventHandler{
 
             // on page change, add extra cycle to update the hi byte in the bus.
             if (lo > 0xff) {
-                this.microCodeStack.push(() => this._bus.read(hi + lo))
+                this.microCodeStack.unshift(() => this._bus.read(hi + lo));
             }
             this.pc++;
         });
@@ -542,25 +548,52 @@ export class nes6502 extends EventHandler{
             this._bus.read((this._bus.data << 8) + this._t);
         });
     }
+
+    /**
+     * Indirect indexed addressing
+
+     Read instructions (LDA, EOR, AND, ORA, ADC, SBC, CMP)
+
+        #    address   R/W description
+       --- ----------- --- ------------------------------------------
+        1      PC       R  fetch opcode, increment PC
+        2      PC       R  fetch pointer address, increment PC
+        3    pointer    R  fetch effective address low
+        4   pointer+1   R  fetch effective address high,
+                           add Y to low byte of effective address
+        5   address+Y*  R  read from effective address,
+                           fix high byte of effective address
+        6+  address+Y   R  read from effective address
+
+       Notes: The effective address is always fetched from zero page,
+              i.e. the zero page boundary crossing is not handled.
+
+              * The high byte of the effective address may be invalid
+                at this time, i.e. it may be smaller by $100.
+
+              + This cycle will be executed only if the effective address
+                was invalid during cycle #5, i.e. page boundary was crossed.
+     */
     IZY() { // Indirect Indexed Y   (d),y   val = PEEK(PEEK(arg) + PEEK((arg + 1) % 256) * 256 + Y)
-        this.microCodeStack.push(() => {
+        this.microCodeStack.push(() => { // Cycle 2 fetch pointer address, increment PC
             this.pc++;
             this._bus.read(this.pc);
         });
-        this.microCodeStack.push(() => {
-            this._t = this._bus.data;
+        this.microCodeStack.push(() => { // Cycle 3 fetch effective address low
             this.pc++;
-            this._bus.read(this.pc);
+            this._bus.read(this._bus.data & 0xff);
         });
-        this.microCodeStack.push(() => this._bus.read(this._t + (this._bus.data << 8)));
-        this.microCodeStack.push(() => {
-            const hi = this._bus.addr & 0xff00;
-            const lo = (this._bus.addr & 0xff) + this.y;
-            this._bus.read(hi  + (lo & 0xff));
-            if (lo > 0xff) {
-                this.microCodeStack.push(() => this._bus.read(hi + lo));
-            }
+        this.microCodeStack.push(() => { // Cycle 4 fetch effective address high, add Y to low byte of effective address
+            this._t = this._bus.data + this.y;
+            this._bus.read((this._bus.addr + 1) & 0xff);
         });
+        this.microCodeStack.push(() => { // Cycle 5 read from effective address, fix high byte of effective address
+            const hi = this._bus.data << 8;
+            const lo = this._t;
+            this._bus.read(hi  + lo);
+        });
+
+        // Cycle 6 is done by the op
     }
 
     // Operations
@@ -654,12 +687,12 @@ export class nes6502 extends EventHandler{
                 const hi = this.pc & 0xff00;
                 const lo = (this.pc & 0xff) + this._bus.data;
 
-                // +1 cycle if branch taken
-                this.microCodeStack.push(() => this.pc = hi | (lo & 0xff));
                 // +1 cycle if branch crosses page boundary
-                if (lo > 0xff) {
-                    this.microCodeStack.push(() => this.pc = hi + lo);
+                if (lo > 0xff && !(lo & 0xff)) {
+                    this.microCodeStack.unshift(() => this.pc = hi + lo);
                 }
+                // +1 cycle if branch taken
+                this.microCodeStack.unshift(() => this.pc = hi | (lo & 0xff));
             }
         })
     }
@@ -1088,7 +1121,7 @@ export class nes6502 extends EventHandler{
         this.DEC();
         this.CMP();
     }
-    ISC() {
+    ISB() { // Aka ISC
         this.INC();
         this.SBC();
     }
@@ -1226,7 +1259,7 @@ export class nes6502 extends EventHandler{
 
     }
 
-    public clock() {
+    public clock(): void {
         // make a micro code stack
         // running the addressing mode and the operation should
         // add steps to the stack
@@ -1255,14 +1288,6 @@ export class nes6502 extends EventHandler{
             log += ' Y:' + this.y.toString(16).toUpperCase().padStart(2, '0');
             log += ' P:' + this.status.toString(16).toUpperCase().padStart(2, '0');
             log += ' SP:' + this.stackPointer.toString(16).toUpperCase().padStart(2, '0');
-            log += ' C:' + this.getFlag(Flags.C);
-            log += ' Z:' + this.getFlag(Flags.Z);
-            log += ' I:' + this.getFlag(Flags.I);
-            log += ' D:' + this.getFlag(Flags.D);
-            log += ' B:' + this.getFlag(Flags.B);
-            log += ' U:' + this.getFlag(Flags.U);
-            log += ' V:' + this.getFlag(Flags.V);
-            log += ' N:' + this.getFlag(Flags.N);
             this.logger.log(log);
             this._fetch.addressingMode.call(this);
             this._fetch.operation.call(this);
