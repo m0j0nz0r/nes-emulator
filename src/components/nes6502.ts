@@ -70,7 +70,7 @@ export class nes6502 extends EventHandler{
         { name: 'BRK', operation: this.BRK, addressingMode: this.IMP}, // 00
         { name: 'ORA', operation: this.ORA, addressingMode: this.IZX}, // 01
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 02
-        { name: 'SLO', operation: this.SLO, addressingMode: this.IZX}, // 03
+        { name: 'SLO', operation: this.SLO, addressingMode: this.IZXRW}, // 03
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZP0}, // 04
         { name: 'ORA', operation: this.ORA, addressingMode: this.ZP0}, // 05
@@ -91,7 +91,7 @@ export class nes6502 extends EventHandler{
         { name: 'BPL', operation: this.BPL, addressingMode: this.REL}, // 10
         { name: 'ORA', operation: this.ORA, addressingMode: this.IZY}, // 11
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 12
-        { name: 'SLO', operation: this.SLO, addressingMode: this.IZY}, // 13
+        { name: 'SLO', operation: this.SLO, addressingMode: this.IZYRW}, // 13
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZPX}, // 14
         { name: 'ORA', operation: this.ORA, addressingMode: this.ZPX}, // 15
@@ -101,18 +101,18 @@ export class nes6502 extends EventHandler{
         { name: 'CLC', operation: this.CLC, addressingMode: this.IMP}, // 18
         { name: 'ORA', operation: this.ORA, addressingMode: this.ABYR}, // 19
         { name: 'NOP', operation: this.NOP, addressingMode: this.IMP}, // 1A
-        { name: 'SLO', operation: this.SLO, addressingMode: this.ABYR}, // 1B
+        { name: 'SLO', operation: this.SLO, addressingMode: this.ABYRW}, // 1B
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ABXR}, // 1C
         { name: 'ORA', operation: this.ORA, addressingMode: this.ABXR}, // 1D
         { name: 'ASL', operation: this.ASL, addressingMode: this.ABXRW}, // 1E
-        { name: 'SLO', operation: this.SLO, addressingMode: this.ABXR}, // 1F
+        { name: 'SLO', operation: this.SLO, addressingMode: this.ABXRW}, // 1F
         
         // 20
         { name: 'JSR', operation: this.JSR, addressingMode: this.NUL}, // 20. JSR will do its own adressing.
         { name: 'AND', operation: this.AND, addressingMode: this.IZX}, // 21
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 22
-        { name: 'RLA', operation: this.RLA, addressingMode: this.IZX}, // 23
+        { name: 'RLA', operation: this.RLA, addressingMode: this.IZXRW}, // 23
 
         { name: 'BIT', operation: this.BIT, addressingMode: this.ZP0}, // 24
         { name: 'AND', operation: this.AND, addressingMode: this.ZP0}, // 25
@@ -133,7 +133,7 @@ export class nes6502 extends EventHandler{
         { name: 'BMI', operation: this.BMI, addressingMode: this.REL}, // 30
         { name: 'AND', operation: this.AND, addressingMode: this.IZY}, // 31
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 32
-        { name: 'RLA', operation: this.RLA, addressingMode: this.IZY}, // 33
+        { name: 'RLA', operation: this.RLA, addressingMode: this.IZYRW}, // 33
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZPX}, // 34
         { name: 'AND', operation: this.AND, addressingMode: this.ZPX}, // 35
@@ -154,7 +154,7 @@ export class nes6502 extends EventHandler{
         { name: 'RTI', operation: this.RTI, addressingMode: this.IMM}, // 40
         { name: 'EOR', operation: this.EOR, addressingMode: this.IZX}, // 41
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 42
-        { name: 'SRE', operation: this.SRE, addressingMode: this.IZX}, // 43
+        { name: 'SRE', operation: this.SRE, addressingMode: this.IZXRW}, // 43
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZP0}, // 44
         { name: 'EOR', operation: this.EOR, addressingMode: this.ZP0}, // 45
@@ -175,7 +175,7 @@ export class nes6502 extends EventHandler{
         { name: 'BVC', operation: this.BVC, addressingMode: this.REL}, // 50
         { name: 'EOR', operation: this.EOR, addressingMode: this.IZY}, // 51
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 52
-        { name: 'SRE', operation: this.SRE, addressingMode: this.IZY}, // 53
+        { name: 'SRE', operation: this.SRE, addressingMode: this.IZYRW}, // 53
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZPX}, // 54
         { name: 'EOR', operation: this.EOR, addressingMode: this.ZPX}, // 55
@@ -196,7 +196,7 @@ export class nes6502 extends EventHandler{
         { name: 'RTS', operation: this.RTS, addressingMode: this.IMP}, // 60
         { name: 'ADC', operation: this.ADC, addressingMode: this.IZX}, // 61
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 62
-        { name: 'RRA', operation: this.RRA, addressingMode: this.IZX}, // 63
+        { name: 'RRA', operation: this.RRA, addressingMode: this.IZXRW}, // 63
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZP0}, // 64
         { name: 'ADC', operation: this.ADC, addressingMode: this.ZP0}, // 65
@@ -217,7 +217,7 @@ export class nes6502 extends EventHandler{
         { name: 'BVS', operation: this.BVS, addressingMode: this.REL}, // 70
         { name: 'ADC', operation: this.ADC, addressingMode: this.IZY}, // 71
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // 72
-        { name: 'RRA', operation: this.RRA, addressingMode: this.IZY}, // 73
+        { name: 'RRA', operation: this.RRA, addressingMode: this.IZYRW}, // 73
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZPX}, // 74
         { name: 'ADC', operation: this.ADC, addressingMode: this.ZPX}, // 75
@@ -322,7 +322,7 @@ export class nes6502 extends EventHandler{
         { name: 'CPY', operation: this.CPY, addressingMode: this.IMM}, // C0
         { name: 'CMP', operation: this.CMP, addressingMode: this.IZX}, // C1
         { name: 'NOP', operation: this.NOP, addressingMode: this.IMM}, // C2
-        { name: 'DCP', operation: this.DCP, addressingMode: this.IZX}, // C3
+        { name: 'DCP', operation: this.DCP, addressingMode: this.IZXRW}, // C3
 
         { name: 'CPY', operation: this.CPY, addressingMode: this.ZP0}, // C4
         { name: 'CMP', operation: this.CMP, addressingMode: this.ZP0}, // C5
@@ -343,7 +343,7 @@ export class nes6502 extends EventHandler{
         { name: 'BNE', operation: this.BNE, addressingMode: this.REL}, // D0
         { name: 'CMP', operation: this.CMP, addressingMode: this.IZY}, // D1
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // D2
-        { name: 'DCP', operation: this.DCP, addressingMode: this.IZY}, // D3
+        { name: 'DCP', operation: this.DCP, addressingMode: this.IZYRW}, // D3
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZPX}, // D4
         { name: 'CMP', operation: this.CMP, addressingMode: this.ZPX}, // D5
@@ -364,7 +364,7 @@ export class nes6502 extends EventHandler{
         { name: 'CPX', operation: this.CPX, addressingMode: this.IMM}, // E0
         { name: 'SBC', operation: this.SBC, addressingMode: this.IZX}, // E1
         { name: 'NOP', operation: this.NOP, addressingMode: this.IMM}, // E2
-        { name: 'ISB', operation: this.ISB, addressingMode: this.IZX}, // E3
+        { name: 'ISB', operation: this.ISB, addressingMode: this.IZXRW}, // E3
 
         { name: 'CPX', operation: this.CPX, addressingMode: this.ZP0}, // E4
         { name: 'SBC', operation: this.SBC, addressingMode: this.ZP0}, // E5
@@ -385,7 +385,7 @@ export class nes6502 extends EventHandler{
         { name: 'BEQ', operation: this.BEQ, addressingMode: this.REL}, // F0
         { name: 'SBC', operation: this.SBC, addressingMode: this.IZY}, // F1
         { name: 'STP', operation: this.STP, addressingMode: this.IMP}, // F2
-        { name: 'ISB', operation: this.ISB, addressingMode: this.IZY}, // F3
+        { name: 'ISB', operation: this.ISB, addressingMode: this.IZYRW}, // F3
 
         { name: 'NOP', operation: this.NOP, addressingMode: this.ZPX}, // F4
         { name: 'SBC', operation: this.SBC, addressingMode: this.ZPX}, // F5
@@ -652,6 +652,12 @@ export class nes6502 extends EventHandler{
             this._bus.read((this._bus.data << 8) + this._t);
         });
     }
+    IZXRW() {
+        this.IZX();
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this._bus.data);
+        });
+    }
 
     /**
      * Indirect indexed addressing
@@ -714,6 +720,54 @@ export class nes6502 extends EventHandler{
             }
         });
     }
+    IZYW() {
+        this.microCodeStack.push(() => { // Cycle 2 fetch pointer address, increment PC
+            this.pc++;
+            this._bus.read(this.pc);
+        });
+        this.microCodeStack.push(() => { // Cycle 3 fetch effective address low
+            this.pc++;
+            this._bus.read(this._bus.data & 0xff);
+        });
+        this.microCodeStack.push(() => { // Cycle 4 fetch effective address high, add Y to low byte of effective address
+            this._t = this._bus.data + this.y;
+            this._bus.read((this._bus.addr + 1) & 0xff);
+        });
+        this.microCodeStack.push(() => {
+            const hi = this._bus.data << 8;
+            const lo = this._t;
+            this._bus.read(hi + lo);
+        });
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this._bus.data);
+        });
+    }
+    IZYRW() {
+        this.microCodeStack.push(() => { // Cycle 2 fetch pointer address, increment PC
+            this.pc++;
+            this._bus.read(this.pc);
+        });
+        this.microCodeStack.push(() => { // Cycle 3 fetch effective address low
+            this.pc++;
+            this._bus.read(this._bus.data & 0xff);
+        });
+        this.microCodeStack.push(() => { // Cycle 4 fetch effective address high, add Y to low byte of effective address
+            this._t = this._bus.data + this.y;
+            this._bus.read((this._bus.addr + 1) & 0xff);
+        });
+        this.microCodeStack.push(() => { // read from effective address fix high byte
+            const hi = this._bus.data << 8;
+            const lo = this._t;
+            this._bus.read(hi + lo);
+        });
+        this.microCodeStack.push(() => { // read from effective address
+            this._bus.read(this._bus.addr);
+        });
+        this.microCodeStack.push(() => { // write value back to effective address 
+            this._bus.write(this._bus.addr, this._bus.data);
+        });
+    }
+    
 
     // Operations
     ADC() { // Add with Carry
@@ -1232,18 +1286,26 @@ export class nes6502 extends EventHandler{
     // Many of these should have bad cycle counts. Fix as needed.
     SLO() {
         this.ASL();
+        // Addressing mode is never implied, so we can safely pop the last microcode because we know it to be a nop
+        this.microCodeStack.pop();
         this.ORA();
     }
     RLA() {
         this.ROL();
+        // Addressing mode is never implied, so we can safely pop the last microcode because we know it to be a nop
+        this.microCodeStack.pop();
         this.AND();
     }
     SRE() {
         this.LSR();
+        // Addressing mode is never implied, so we can safely pop the last microcode because we know it to be a nop
+        this.microCodeStack.pop();
         this.EOR();
     }
     RRA() {
         this.ROR();
+        // Addressing mode is never implied, so we can safely pop the last microcode because we know it to be a nop
+        this.microCodeStack.pop();
         this.ADC();
     }
     SAX() {
@@ -1271,7 +1333,10 @@ export class nes6502 extends EventHandler{
         this.NOP();
     }
     ISB() { // Aka ISC
-        this.INC();
+        this.microCodeStack.push(() => {
+            this._bus.write(this._bus.addr, this._bus.data + 1);
+            this.testNZFlags(this._bus.data);
+        });
         this.SBC();
     }
     ANC() {
