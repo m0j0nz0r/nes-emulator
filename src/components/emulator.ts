@@ -64,14 +64,7 @@ export class Emulator extends EventHandler {
     
         } catch(e) {
             this.cpu.microCodeStack.push(() => {
-                this.bus.read(0x2);
-            });
-            this.cpu.microCodeStack.push(() => {
-                console.log('Error 1: ', this.bus.data.toString(16));
-                this.bus.read(0x3);
-            });
-            this.cpu.microCodeStack.push(() => {
-                console.log('Error 2: ', this.bus.data.toString(16));
+                console.log(e);
                 this.stop();
             });
         }
