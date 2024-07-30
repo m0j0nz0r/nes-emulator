@@ -17,7 +17,7 @@ class CustomLogger implements Logger {
             optionalParams.reduce((pv, cv) => pv + cv, finalMessage);
         }
 
-        finalMessage += ` CYC:${emulator.cycle}`;
+        finalMessage += ` CYC:${emulator.cpu.cycle}`;
 
         function checkLog(finalMessage: string): string {
             const msgArray = finalMessage.trim().split(' ');
@@ -75,10 +75,34 @@ class CustomLogger implements Logger {
         }
     };
 }
+console.log('Starting...');
+console.log('Creating emulator...');
 const emulator = new Emulator(new CustomLogger());
+console.log('Loading ROM...');
 const rom = fs.readFileSync(path.join(__dirname, 'testRoms/nestest.nes'));
 emulator.loadCartridge(rom);
-emulator.cycle = 6;
+console.log('Setting initial state...');
+emulator.cpu.cycle = 6;
+emulator.cpu.pc = 0xc000;
+emulator.cpu.on('fetch', cpuTestLog),
 console.time('Execution');
 emulator.on('stop', () => console.timeEnd('Execution'));
+console.log('Start');
 emulator.start();
+
+function cpuTestLog() {
+    if (emulator.cpu.microCodeStack.length) {
+        return;
+    }
+    let log = '';
+    log += emulator.cpu.count.toString().padStart(4, ' ');
+    log += ' ' + emulator.bus.addr.toString(16).toUpperCase().padStart(4, '0');
+    log += ' ' + emulator.bus.data.toString(16).toUpperCase().padStart(2, '0');
+    log += ' ' + emulator.cpu.fetch?.name;
+    log += ' A:' + emulator.cpu.a.toString(16).toUpperCase().padStart(2, '0'); 
+    log += ' X:' + emulator.cpu.x.toString(16).toUpperCase().padStart(2, '0');
+    log += ' Y:' + emulator.cpu.y.toString(16).toUpperCase().padStart(2, '0');
+    log += ' P:' + emulator.cpu.status.toString(16).toUpperCase().padStart(2, '0');
+    log += ' SP:' + emulator.cpu.stackPointer.toString(16).toUpperCase().padStart(2, '0');
+    emulator.logger.log(log);
+}

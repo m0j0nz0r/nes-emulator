@@ -9,29 +9,31 @@ import { EventHandler, Logger } from './eventHandler';
 export class Emulator extends EventHandler {
     constructor (logger?: Logger) {
         super(logger);
-        this._bus = new Bus();
+        this.bus = new Bus();
         this._graphicBus = new Bus();
-        this._ram = new RAM(this._bus);
-        this._cpu = new nes6502(this._bus, logger);
-        this._cartridge = new Cartridge(this._bus, this._graphicBus);
-        this._ppu = new PPU(this._bus, this._graphicBus);
+        this._ram = new RAM(this.bus);
+        this.cpu = new nes6502(this.bus, logger);
+        this._cartridge = new Cartridge(this.bus, this._graphicBus);
+        this._ppu = new PPU(this.bus, this._graphicBus);
         this._emulation = new NanoTimer();
     }
-    private _bus: Bus;
+    public bus: Bus;
     private _graphicBus: Bus;
     private _ram: RAM;
-    private _cpu: nes6502;
+    public cpu: nes6502;
     private _ppu: PPU;
     private _cartridge: Cartridge;
     private _emulation: NanoTimer;
 
     public cycle: number = 0;
+    public cpuClockDivisor: number = 12;
+    public ppuClockDivisor: number = 4;
+    public cpuCycle: number = this.cpuClockDivisor;
+    public ppuCycle: number = this.ppuClockDivisor;
 
     public start() {
         // normal emulation speed should be 21441960 Hz
-
-        this._cpu.pc = 0xc000;
-        this._bus.read(this._cpu.pc);
+        this.bus.read(this.cpu.pc);
         this._emulation.setInterval(() => {
             this.clock();
         }, '', '46n');
@@ -42,23 +44,34 @@ export class Emulator extends EventHandler {
     }
     public clock () {
         this.cycle++;
-
         try {
             this._ram.clock();
             this._cartridge.clock();
-            this._cpu.clock();
-            this._ppu.clock();
+
+            // cpu clock ticks
+            this.cpuCycle--;
+            if (!this.cpuCycle) {
+                this.cpuCycle = this.cpuClockDivisor;
+                this.cpu.clock();
+            }
+
+            // ppu clock ticks
+            this.ppuCycle--;
+            if(!this.ppuCycle) {
+                this.ppuCycle = this.ppuClockDivisor;
+                this._ppu.clock();
+            }
     
         } catch(e) {
-            this._cpu.microCodeStack.push(() => {
-                this._bus.read(0x2);
+            this.cpu.microCodeStack.push(() => {
+                this.bus.read(0x2);
             });
-            this._cpu.microCodeStack.push(() => {
-                console.log('Error 1: ', this._bus.data.toString(16));
-                this._bus.read(0x3);
+            this.cpu.microCodeStack.push(() => {
+                console.log('Error 1: ', this.bus.data.toString(16));
+                this.bus.read(0x3);
             });
-            this._cpu.microCodeStack.push(() => {
-                console.log('Error 2: ', this._bus.data.toString(16));
+            this.cpu.microCodeStack.push(() => {
+                console.log('Error 2: ', this.bus.data.toString(16));
                 this.stop();
             });
         }

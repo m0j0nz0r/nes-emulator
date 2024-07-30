@@ -20,9 +20,10 @@ export class nes6502 extends EventHandler{
         super(logger);
         this._bus = bus;
     }
+    public cycle = 0;
     private _bus: Bus;
     private _t: number = 0; // temporary private register to store bytes between cycles
-    private _fetch?: Instruction;
+    public fetch?: Instruction;
     private _getPreviousMicroCode() {
         return this.microCodeStack.pop() || (() => {});
     }
@@ -55,7 +56,7 @@ export class nes6502 extends EventHandler{
     set stackPointer(v: number) {
         this._sp = v & 0xff;
     }
-    pc: number = 0x0; // program counter
+    pc: number = 0xfffc; // program counter
     private _p: number = 0x24 | Flags.U | Flags.I; // status register
     get status(): number {
         return this._p;
@@ -536,7 +537,7 @@ export class nes6502 extends EventHandler{
             this._bus.read(this.pc);
         });
 
-        const op = this._fetch?.name || '';
+        const op = this.fetch?.name || '';
         if (['STA', 'STX', 'STY', 'SHA', 'SHX', 'SHY'].includes(op)) {
             this.microCodeStack.push(() => {
                 const lo = this._t + reg;
@@ -697,7 +698,7 @@ export class nes6502 extends EventHandler{
             this._t = this._bus.data + this.y;
             this._bus.read((this._bus.addr + 1) & 0xff);
         });
-        const op = this._fetch?.operation;
+        const op = this.fetch?.operation;
         if (op === this.STA || op === this.SAX) {
             this.microCodeStack.push(() => {
                 const hi = this._bus.data << 8;
@@ -814,7 +815,7 @@ export class nes6502 extends EventHandler{
             p.setFlag(Flags.Z, !(result & 0xff));
             p.setFlag(Flags.C, result & 0x100); // test bit 8
         }
-        if (this._fetch?.addressingMode === this.IMP) {
+        if (this.fetch?.addressingMode === this.IMP) {
             this.microCodeStack.push(() => {
                 result = this.a << 1;
                 this.a = result & 0xff;
@@ -830,7 +831,7 @@ export class nes6502 extends EventHandler{
         }
     }
     LSR() { // Logical shift right
-        if (this._fetch?.addressingMode === this.IMP) {
+        if (this.fetch?.addressingMode === this.IMP) {
             this.microCodeStack.push(() => {
                 this.setFlag(Flags.C, this.a & 0x1);
                 this.a = this.a >> 1;
@@ -1136,7 +1137,7 @@ export class nes6502 extends EventHandler{
             p.testNZFlags(result);
             return result;
         }
-        if (this._fetch?.addressingMode === this.IMP) {
+        if (this.fetch?.addressingMode === this.IMP) {
             this.microCodeStack.push(() => {
                 this.a = rotate(this.a) & 0xff;
             });    
@@ -1164,7 +1165,7 @@ export class nes6502 extends EventHandler{
             p.testNZFlags(result);
             return result;
         }
-        if (this._fetch?.addressingMode === this.IMP) {
+        if (this.fetch?.addressingMode === this.IMP) {
             this.microCodeStack.push(() => {
                 this.a = rotate(this.a) & 0xff;
             });    
@@ -1479,7 +1480,7 @@ export class nes6502 extends EventHandler{
         // add steps to the stack
         // if stack is empty, current data should be an op
         // each item in the stack is 1 cycle
-
+        this.cycle++;
         if (this.microCodeStack.length) {
             const microCode = this.microCodeStack.shift();
             // we check for falsy, although this should never happen.
@@ -1490,28 +1491,18 @@ export class nes6502 extends EventHandler{
                 this._bus.read(this.pc);
             }
         } else {
-            this._fetch = this.opCodeLookup[this._bus.data];
+            this.fetch = this.opCodeLookup[this._bus.data];
             this.count++;
-            let log = '';
-            log += this.count.toString().padStart(4, ' ');
-            log += ' ' + this._bus.addr.toString(16).toUpperCase().padStart(4, '0');
-            log += ' ' + this._bus.data.toString(16).toUpperCase().padStart(2, '0');
-            log += ' ' + this._fetch.name;
-            log += ' A:' + this.a.toString(16).toUpperCase().padStart(2, '0'); 
-            log += ' X:' + this.x.toString(16).toUpperCase().padStart(2, '0');
-            log += ' Y:' + this.y.toString(16).toUpperCase().padStart(2, '0');
-            log += ' P:' + this.status.toString(16).toUpperCase().padStart(2, '0');
-            log += ' SP:' + this.stackPointer.toString(16).toUpperCase().padStart(2, '0');
-            this.logger.log(log);
-            this._fetch.addressingMode.call(this);
-            this._fetch.operation.call(this);
+            this.broadcast('fetch');
+            this.fetch.addressingMode.call(this);
+            this.fetch.operation.call(this);
 
             const microCode = this.microCodeStack.shift();
             // we check for falsy, although this should never happen.
             microCode && microCode();
         }
     }
-    private count = 0;
+    public count = 0;
     public getFlag(flag: Flags): number {
         return (this.status & flag) != 0 ? 1 : 0;
     }
