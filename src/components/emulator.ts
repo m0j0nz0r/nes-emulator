@@ -1,7 +1,7 @@
 import * as NanoTimer from 'nanotimer';
 import { Bus } from './bus';
 import { RAM } from './RAM';
-import { nes6502 } from './nes6502';
+import { Nes6502 } from './nes6502';
 import { Cartridge } from './cartridge';
 import { PPU } from './ppu';
 import { EventHandler, Logger } from './eventHandler';
@@ -12,7 +12,7 @@ export class Emulator extends EventHandler {
         this.bus = new Bus();
         this._graphicBus = new Bus();
         this._ram = new RAM(this.bus);
-        this.cpu = new nes6502(this.bus, logger);
+        this.cpu = new Nes6502(this.bus, logger);
         this._cartridge = new Cartridge(this.bus, this._graphicBus);
         this._ppu = new PPU(this.bus, this._graphicBus);
         this._emulation = new NanoTimer();
@@ -20,7 +20,7 @@ export class Emulator extends EventHandler {
     public bus: Bus;
     private _graphicBus: Bus;
     private _ram: RAM;
-    public cpu: nes6502;
+    public cpu: Nes6502;
     private _ppu: PPU;
     private _cartridge: Cartridge;
     private _emulation: NanoTimer;

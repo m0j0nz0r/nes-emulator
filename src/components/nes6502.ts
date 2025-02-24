@@ -15,7 +15,7 @@ interface Instruction {
     operation: () => void,
     addressingMode: () => void
 }
-export class nes6502 extends EventHandler{
+export class Nes6502 extends EventHandler{
     constructor (bus: Bus, logger?: Logger) {
         super(logger);
         this._bus = bus;

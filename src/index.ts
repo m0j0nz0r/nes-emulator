@@ -1,3 +1,2 @@
-import { cpuTest } from './cpuTest';
-
-cpuTest();
+import { Emulator } from "./components/emulator";
+export { Emulator };

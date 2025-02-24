@@ -48,7 +48,7 @@ export class Cartridge {
             rom.subarray(offset, this._headers.prgRomSize),
             {minAddr: 0x8000, maxAddr: 0xffff},
             this._headers.prgRomSize > 0x4000 ? 0x7fff : 0x3fff
-            );
+        );
         
         offset += this._headers.prgRomSize;
 
