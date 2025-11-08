@@ -1,6 +1,10 @@
 import { Bus, ReadFlagState } from "./bus";
+import { RAM } from "./RAM";
 
 const mainAddrRange = { minAddr: 0x2000, maxAddr: 0x3fff };
+
+const maxPixel = 341;
+const maxScanline = 262;
 
 enum PPURegisters {
     PPUCTRL = 0x2000,
@@ -114,21 +118,54 @@ export class PPU {
         this._controlFlags = new PPUCTRLFlags(0);
         this._maskFlags = new PPUMASKFlags(0);
         this._statusFlags = new PPUSTATUSFlags(0);
+        
+        this.VRAM = new RAM(this._graphicsBus, new Array(0x8000).fill(0), { minAddr: 0x0000, maxAddr: 0x3fff });
     }
+    public VRAM: RAM;
     private _scanline: number = -1;
+    private _cycle: number = 0;
+    private _isEvenFrame: boolean = true;
     private _controlFlags: PPUCTRLFlags;
     private _maskFlags: PPUMASKFlags;
     private _statusFlags: PPUSTATUSFlags;
+    private _OAM = new Array(256).fill(0); // Object Attribute Memory (OAM)
     private _OAMADDR = 0; // OAM address register
-    private _OAMDATA = 0; // OAM data register
-    private _xScroll = 0; // X scroll
-    private _yScroll = 0; // Y scroll
-    private _PPUADDR = 0; // PPU address register
+    private get _OAMDATA(): number {
+        return this._OAM.at(this._OAMADDR) ?? 0;
+    }
+    private set _OAMDATA(value: number) {
+        this._OAM[this._OAMADDR] = value & 0xff;
+    }
+    private get _tileAddress(): number {
+        return 0x2000 | (this._V & 0x0fff);
+    }
+    private get _attributeAddress(): number {
+        return 0x23C0 | (this._V & 0x0C00) | ((this._V >> 4) & 0x0038) | ((this._V >> 2) & 0x0007);
+    }
 
     // Internal PPU registers
-    private _V = 0; // current VRAM address (15 bits)
-    private _T = 0; // temporary VRAM address (15 bits)
-    private _X = 0; // fine X scroll (3 bits)
+    private _v = 0; // current VRAM address (15 bits)
+    private get _V(): number {
+        return this._v;
+    }
+    private set _V(value: number) {
+        this._v = value & 0x7fff;
+    }
+
+    private _t = 0; // temporary VRAM address (15 bits)
+    private get _T(): number {
+        return this._t;
+    }
+    private set _T(value: number) {
+        this._t = value & 0x7fff;
+    }
+    private _x = 0; // fine X scroll (3 bits)
+    private get _X(): number {
+        return this._x;
+    }
+    private set _X(value: number) {
+        this._x = value & 0x07;
+    }
     private _W = 0; // write toggle (1 bit)
 
     private _ioBus: Bus;
@@ -148,6 +185,7 @@ export class PPU {
             case PPURegisters.PPUCTRL:
                 if (rwFlag === ReadFlagState.write) {
                     this._controlFlags = new PPUCTRLFlags(data);
+                    this._T = (this._T & 0b111_0011_1111_1111) | ((data & 0x3) << 10);
                 }  else {
                     // PPUCTRL is write-only
                 }
@@ -181,8 +219,9 @@ export class PPU {
                         // during rendering, writes to OAMDATA are glitched, and the OAMADDR does not increment
                         // we will disable writes during rendering for simplicity
                     } else {
-                        this._OAMADDR = (this._OAMADDR + 1) & 0xff;
                         this._OAMDATA = data & 0xff;
+                        this._OAMADDR += 1;
+                        this._OAMADDR &= 0xff;
                     }
                 } else {
                     this._ioBus.data = this._OAMDATA;
@@ -191,10 +230,18 @@ export class PPU {
             case PPURegisters.PPUSCROLL:
                 if (rwFlag === ReadFlagState.write) {
                     if (this._W === 0) {
-                        this._xScroll = data & 0xff;
+                        this._T = (this._T & 0b1111_1111_1110_0000) | ((data & 0b11111000) >> 3);
+                        this._X = data & 0x07;
                         this._W = 1;
                     } else {
-                        this._yScroll = data & 0xff;
+                        /**
+                         * $2005 (PPUSCROLL) second write (w is 1)
+                         * t: FGH..AB CDE..... <- d: ABCDEFGH
+                         */
+                        // ABCDE
+                        this._T = (this._T & 0b111_1100_0001_1111) | ((data & 0b1111_1000) << 2);
+                        // FGH
+                        this._T = (this._T & 0b000_1111_1111_1111) | ((data & 0b111) << 12);
                         this._W = 0;
                     }
                 } else {
@@ -204,10 +251,25 @@ export class PPU {
             case PPURegisters.PPUADDR:
                 if (rwFlag === ReadFlagState.write) {
                     if (this._W === 0) {
-                        this._PPUADDR = ((data & 0x3f) << 8) | (this._PPUADDR & 0x00ff);
+                        /**
+                         * $2006 (PPUADDR) first write (w is 0)
+                         * t: .CDEFGH ........ <- d: ..CDEFGH
+                         *       <unused>     <- d: AB......
+                         * t: Z...... ........ <- 0 (bit Z is cleared)
+                         * w:                  <- 1
+                         */
+                        this._T = (this._T & 0b0111111_11111111) | ((data & 0b111111) << 8);
                         this._W = 1;
                     } else {
-                        this._PPUADDR = (this._PPUADDR & 0xff00) | (data & 0xff);
+                        /**
+                         * $2006 (PPUADDR) second write (w is 1)
+                         * t: ....... ABCDEFGH <- d: ABCDEFGH
+                         * w:                  <- 0
+                         *   (wait 1 to 1.5 dots after the write completes)
+                         * v: <...all bits...> <- t: <...all bits...>
+                         */
+                        this._T = (this._T & 0b1111111_00000000) | (data & 0xff);
+                        this._V = this._T;
                         this._W = 0;
                     }
                 } else {
@@ -215,10 +277,14 @@ export class PPU {
                 }
                 break;
             case PPURegisters.PPUDATA:
-                if (rwFlag === ReadFlagState.write) {
-                    // TODO
+                if (this.isRendering()) {
+                    // TODO weird glitchy behavior during rendering
                 } else {
-                    // PPUDATA is write-only
+                    if (rwFlag === ReadFlagState.write) {
+                        this._graphicsBus.write(this._V, data & 0xff);
+                    }
+                    this._V += this._controlFlags.incrementMode;
+                    this._V &= 0x3fff;
                 }
                 break;
             case PPURegisters.OAMDMA:
@@ -251,7 +317,125 @@ export class PPU {
     }
 
     public clock() {
+        this._updateCycleCounters();
         this._handleMainBus();
+        this._evaluateBackground();
+        const isRenderingEnabled = this._maskFlags.showBg || this._maskFlags.showSprites;
+        if (isRenderingEnabled) {
+            switch (this._cycle) {
+                case 256:
+                    // increment vertical position
+                    this._YIncrement();
+                    break;
+                case 257:
+                    // copy horizontal position from t to v
+                    const mask  = 0b1111011_11100000;
+                    this._V = (this._V & mask) | (this._T & ~mask);
+                    break;
+                case 338:
+                case 340:
+                    // fetch next two tiles for next scanline
+                    break;
+            }
+            if (this.isPreRenderingScanline && this._cycle >= 280 && this._cycle <= 304) {
+                // copy vertical position from t to v
+                const mask = 0b0000100_00011111;
+                this._V = (this._V & mask) | (this._T & ~mask);
+            }
+            if ((this._cycle >= 328 || this._cycle <= 256) && this._cycle % 8 === 0) {
+                this._coarseXIncrement();
+            }
+            this._oddFrameCycleSkip();
+        }
     }
 
+    private _coarseXIncrement() {
+        if ((this._V & 0x001F) === 31) {
+            this._V &= ~0x001F;             // coarse X = 0
+            this._V ^= 0x0400;              // switch horizontal nametable
+        } else {
+            this._V += 1;
+        }
+    }
+    private _YIncrement() {
+        if ((this._V & 0x7000) !== 0x7000) {
+            this._V += 0x1000; // increment fine Y
+        } else {
+            this._V &= ~0x7000; // fine Y = 0
+            let y = (this._V & 0x03E0) >> 5; // get coarse Y
+            if (y === 29) {
+                y = 0;
+                this._V ^= 0x0800; // switch vertical nametable
+            } else if (y === 31) {
+                y = 0; // coarse Y = 0, nametable not switched
+            } else {
+                y += 1;
+            }
+            this._V = (this._V & ~0x03E0) | (y << 5); // put coarse Y back
+        }
+    }
+
+    private _oddFrameCycleSkip() {
+        if (!this._isEvenFrame && this._scanline === 0 && this._cycle === 0) {
+            // skip cycle on odd frames
+            this._cycle = 1;
+        }
+    }
+
+    private _updateCycleCounters() {
+        this._cycle += 1;
+        if (this._cycle > maxPixel) {
+            this._cycle = 0;
+        }
+        if (this._cycle === 0) {
+            this._scanline += 1;
+            if (this._scanline > maxScanline) {
+                this._scanline = 0;
+                this._isEvenFrame = !this._isEvenFrame;
+            }
+        }
+    }
+
+    private _evaluateBackground() {
+        /**
+         * Fetch a nametable entry from $2000-$2FFF.
+         * Fetch the corresponding attribute table entry from $23C0-$2FFF and increment the current VRAM address within the same row.
+         * Fetch the low-order byte of an 8x1 pixel sliver of pattern table from $0000-$0FF7 or $1000-$1FF7.
+         * Fetch the high-order byte of this sliver from an address 8 bytes higher.
+         * Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
+         */
+        if (this._cycle !== 0 && (this.isVisibleScanline || this.isPreRenderingScanline)) {
+            const subCycle = (this._cycle - 1) % 8;
+            switch (subCycle) {
+                case 0:
+                    // Fetch nametable entry
+                    this._graphicsBus.read(0x2000 | (this._V & 0x0fff));
+                    break;
+                case 1:
+                    // Do stuff with nametable byte
+                    break;
+                case 2:
+                    // Fetch attribute table entry
+                    this._graphicsBus.read(0x23C0 | (this._V & 0x0C00) | ((this._V >> 4) & 0x0038) | ((this._V >> 2) & 0x0007));
+                    break;
+                case 3:
+                    // Do stuff with attribute byte
+                    break;
+                case 4:
+                    // Fetch low-order byte of pattern table
+                    this._graphicsBus.read(0x1000 | (this._V & 0x0FFF));
+                    break;
+                case 5:
+                    // Do stuff with pattern table byte
+                    break;
+                case 6:
+                    // Fetch high-order byte of pattern table
+                    this._graphicsBus.read(0x1000 | (this._V & 0x0FFF) | 0x0008);
+                    break;
+                case 7:
+                    // Combine attribute data and pattern table data into palette indices
+                    break;
+            }
+        }
+    }
 }

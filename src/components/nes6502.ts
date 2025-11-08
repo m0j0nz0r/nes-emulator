@@ -26,338 +26,338 @@ export class Nes6502 extends EventHandler {
     this.addressingModes = new Nes6502AddressingModes(this);
     this.opCodeLookup = [
       // 00
-      { name: 'BRK', operation: this.BRK, addressingMode: this.addressingModes.IMP }, // 00
-      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.IZX }, // 01
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 02
+      { name: 'BRK', operation: this.BRK, addressingMode: this.addressingModes.IMP },   // 00
+      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.IZX },   // 01
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 02
       { name: 'SLO', operation: this.SLO, addressingMode: this.addressingModes.IZXRW }, // 03
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZP0 }, // 04
-      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ZP0 }, // 05
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZP0 },   // 04
+      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ZP0 },   // 05
       { name: 'ASL', operation: this.ASL, addressingMode: this.addressingModes.ZP0RW }, // 06
       { name: 'SLO', operation: this.SLO, addressingMode: this.addressingModes.ZP0RW }, // 07
 
-      { name: 'PHP', operation: this.PHP, addressingMode: this.addressingModes.IMP }, // 08
-      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.IMM }, // 09
-      { name: 'ASL', operation: this.ASL, addressingMode: this.addressingModes.IMP }, // 0A
-      { name: 'ANC', operation: this.ANC, addressingMode: this.addressingModes.IMM }, // 0B
+      { name: 'PHP', operation: this.PHP, addressingMode: this.addressingModes.IMP },   // 08
+      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.IMM },   // 09
+      { name: 'ASL', operation: this.ASL, addressingMode: this.addressingModes.IMP },   // 0A
+      { name: 'ANC', operation: this.ANC, addressingMode: this.addressingModes.IMM },   // 0B
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABS }, // 0C
-      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ABS }, // 0D
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABS },   // 0C
+      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ABS },   // 0D
       { name: 'ASL', operation: this.ASL, addressingMode: this.addressingModes.ABSRW }, // 0E
       { name: 'SLO', operation: this.SLO, addressingMode: this.addressingModes.ABSRW }, // 0F
 
       // 10
-      { name: 'BPL', operation: this.BPL, addressingMode: this.addressingModes.REL }, // 10
-      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.IZY }, // 11
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 12
+      { name: 'BPL', operation: this.BPL, addressingMode: this.addressingModes.REL },   // 10
+      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.IZY },   // 11
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 12
       { name: 'SLO', operation: this.SLO, addressingMode: this.addressingModes.IZYRW }, // 13
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX }, // 14
-      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ZPX }, // 15
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX },   // 14
+      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ZPX },   // 15
       { name: 'ASL', operation: this.ASL, addressingMode: this.addressingModes.ZPXRW }, // 16
       { name: 'SLO', operation: this.SLO, addressingMode: this.addressingModes.ZPXRW }, // 17
 
-      { name: 'CLC', operation: this.CLC, addressingMode: this.addressingModes.IMP }, // 18
-      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ABYR }, // 19
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP }, // 1A
+      { name: 'CLC', operation: this.CLC, addressingMode: this.addressingModes.IMP },   // 18
+      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ABYR },  // 19
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP },   // 1A
       { name: 'SLO', operation: this.SLO, addressingMode: this.addressingModes.ABYRW }, // 1B
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR }, // 1C
-      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ABXR }, // 1D
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR },  // 1C
+      { name: 'ORA', operation: this.ORA, addressingMode: this.addressingModes.ABXR },  // 1D
       { name: 'ASL', operation: this.ASL, addressingMode: this.addressingModes.ABXRW }, // 1E
       { name: 'SLO', operation: this.SLO, addressingMode: this.addressingModes.ABXRW }, // 1F
 
       // 20
-      { name: 'JSR', operation: this.JSR, addressingMode: this.addressingModes.NUL }, // 20. JSR will do its own adressing.
-      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.IZX }, // 21
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 22
+      { name: 'JSR', operation: this.JSR, addressingMode: this.addressingModes.NUL },   // 20. JSR will do its own adressing.
+      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.IZX },   // 21
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 22
       { name: 'RLA', operation: this.RLA, addressingMode: this.addressingModes.IZXRW }, // 23
 
-      { name: 'BIT', operation: this.BIT, addressingMode: this.addressingModes.ZP0 }, // 24
-      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ZP0 }, // 25
+      { name: 'BIT', operation: this.BIT, addressingMode: this.addressingModes.ZP0 },   // 24
+      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ZP0 },   // 25
       { name: 'ROL', operation: this.ROL, addressingMode: this.addressingModes.ZP0RW }, // 26
       { name: 'RLA', operation: this.RLA, addressingMode: this.addressingModes.ZP0RW }, // 27
 
-      { name: 'PLP', operation: this.PLP, addressingMode: this.addressingModes.IMP }, // 28
-      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.IMM }, // 29
-      { name: 'ROL', operation: this.ROL, addressingMode: this.addressingModes.IMP }, // 2A
-      { name: 'ANC', operation: this.ANC, addressingMode: this.addressingModes.IMM }, // 2B
+      { name: 'PLP', operation: this.PLP, addressingMode: this.addressingModes.IMP },   // 28
+      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.IMM },   // 29
+      { name: 'ROL', operation: this.ROL, addressingMode: this.addressingModes.IMP },   // 2A
+      { name: 'ANC', operation: this.ANC, addressingMode: this.addressingModes.IMM },   // 2B
 
-      { name: 'BIT', operation: this.BIT, addressingMode: this.addressingModes.ABS }, // 2C
-      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ABS }, // 2D
+      { name: 'BIT', operation: this.BIT, addressingMode: this.addressingModes.ABS },   // 2C
+      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ABS },   // 2D
       { name: 'ROL', operation: this.ROL, addressingMode: this.addressingModes.ABSRW }, // 2E
       { name: 'RLA', operation: this.RLA, addressingMode: this.addressingModes.ABSRW }, // 2F
 
       // 30
-      { name: 'BMI', operation: this.BMI, addressingMode: this.addressingModes.REL }, // 30
-      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.IZY }, // 31
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 32
+      { name: 'BMI', operation: this.BMI, addressingMode: this.addressingModes.REL },   // 30
+      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.IZY },   // 31
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 32
       { name: 'RLA', operation: this.RLA, addressingMode: this.addressingModes.IZYRW }, // 33
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX }, // 34
-      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ZPX }, // 35
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX },   // 34
+      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ZPX },   // 35
       { name: 'ROL', operation: this.ROL, addressingMode: this.addressingModes.ZPXRW }, // 36
       { name: 'RLA', operation: this.RLA, addressingMode: this.addressingModes.ZPXRW }, // 37
 
-      { name: 'SEC', operation: this.SEC, addressingMode: this.addressingModes.IMP }, // 38
-      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ABYR }, // 39
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP }, // 3A
+      { name: 'SEC', operation: this.SEC, addressingMode: this.addressingModes.IMP },   // 38
+      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ABYR },  // 39
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP },   // 3A
       { name: 'RLA', operation: this.RLA, addressingMode: this.addressingModes.ABYRW }, // 3B
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR }, // 3C
-      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ABXR }, // 3D
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR },  // 3C
+      { name: 'AND', operation: this.AND, addressingMode: this.addressingModes.ABXR },  // 3D
       { name: 'ROL', operation: this.ROL, addressingMode: this.addressingModes.ABXRW }, // 3E
       { name: 'RLA', operation: this.RLA, addressingMode: this.addressingModes.ABXRW }, // 3F
 
       // 40
-      { name: 'RTI', operation: this.RTI, addressingMode: this.addressingModes.IMM }, // 40
-      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.IZX }, // 41
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 42
+      { name: 'RTI', operation: this.RTI, addressingMode: this.addressingModes.IMM },   // 40
+      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.IZX },   // 41
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 42
       { name: 'SRE', operation: this.SRE, addressingMode: this.addressingModes.IZXRW }, // 43
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZP0 }, // 44
-      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ZP0 }, // 45
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZP0 },   // 44
+      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ZP0 },   // 45
       { name: 'LSR', operation: this.LSR, addressingMode: this.addressingModes.ZP0RW }, // 46
       { name: 'SRE', operation: this.SRE, addressingMode: this.addressingModes.ZP0RW }, // 47
 
-      { name: 'PHA', operation: this.PHA, addressingMode: this.addressingModes.IMP }, // 48
-      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.IMM }, // 49
-      { name: 'LSR', operation: this.LSR, addressingMode: this.addressingModes.IMP }, // 4A
-      { name: 'ALR', operation: this.ALR, addressingMode: this.addressingModes.IMM }, // 4B
+      { name: 'PHA', operation: this.PHA, addressingMode: this.addressingModes.IMP },   // 48
+      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.IMM },   // 49
+      { name: 'LSR', operation: this.LSR, addressingMode: this.addressingModes.IMP },   // 4A
+      { name: 'ALR', operation: this.ALR, addressingMode: this.addressingModes.IMM },   // 4B
 
-      { name: 'JMP', operation: this.JMP, addressingMode: this.addressingModes.ABS }, // 4C
-      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ABS }, // 4D
+      { name: 'JMP', operation: this.JMP, addressingMode: this.addressingModes.ABS },   // 4C
+      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ABS },   // 4D
       { name: 'LSR', operation: this.LSR, addressingMode: this.addressingModes.ABSRW }, // 4E
       { name: 'SRE', operation: this.SRE, addressingMode: this.addressingModes.ABSRW }, // 4F
 
       // 50
-      { name: 'BVC', operation: this.BVC, addressingMode: this.addressingModes.REL }, // 50
-      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.IZY }, // 51
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 52
+      { name: 'BVC', operation: this.BVC, addressingMode: this.addressingModes.REL },   // 50
+      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.IZY },   // 51
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 52
       { name: 'SRE', operation: this.SRE, addressingMode: this.addressingModes.IZYRW }, // 53
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX }, // 54
-      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ZPX }, // 55
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX },   // 54
+      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ZPX },   // 55
       { name: 'LSR', operation: this.LSR, addressingMode: this.addressingModes.ZPXRW }, // 56
       { name: 'SRE', operation: this.SRE, addressingMode: this.addressingModes.ZPXRW }, // 57
 
-      { name: 'CLI', operation: this.CLI, addressingMode: this.addressingModes.IMP }, // 58
-      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ABYR }, // 59
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP }, // 5A
+      { name: 'CLI', operation: this.CLI, addressingMode: this.addressingModes.IMP },   // 58
+      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ABYR },  // 59
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP },   // 5A
       { name: 'SRE', operation: this.SRE, addressingMode: this.addressingModes.ABYRW }, // 5B
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR }, // 5C
-      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ABXR }, // 5D
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR },  // 5C
+      { name: 'EOR', operation: this.EOR, addressingMode: this.addressingModes.ABXR },  // 5D
       { name: 'LSR', operation: this.LSR, addressingMode: this.addressingModes.ABXRW }, // 5E
       { name: 'SRE', operation: this.SRE, addressingMode: this.addressingModes.ABXRW }, // 5F
 
       // 60
-      { name: 'RTS', operation: this.RTS, addressingMode: this.addressingModes.IMP }, // 60
-      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.IZX }, // 61
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 62
+      { name: 'RTS', operation: this.RTS, addressingMode: this.addressingModes.IMP },   // 60
+      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.IZX },   // 61
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 62
       { name: 'RRA', operation: this.RRA, addressingMode: this.addressingModes.IZXRW }, // 63
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZP0 }, // 64
-      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ZP0 }, // 65
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZP0 },   // 64
+      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ZP0 },   // 65
       { name: 'ROR', operation: this.ROR, addressingMode: this.addressingModes.ZP0RW }, // 66
       { name: 'RRA', operation: this.RRA, addressingMode: this.addressingModes.ZP0RW }, // 67
 
-      { name: 'PLA', operation: this.PLA, addressingMode: this.addressingModes.IMP }, // 68
-      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.IMM }, // 69
-      { name: 'ROR', operation: this.ROR, addressingMode: this.addressingModes.IMP }, // 6A
-      { name: 'ARR', operation: this.ARR, addressingMode: this.addressingModes.IMM }, // 6B
+      { name: 'PLA', operation: this.PLA, addressingMode: this.addressingModes.IMP },   // 68
+      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.IMM },   // 69
+      { name: 'ROR', operation: this.ROR, addressingMode: this.addressingModes.IMP },   // 6A
+      { name: 'ARR', operation: this.ARR, addressingMode: this.addressingModes.IMM },   // 6B
 
-      { name: 'JMP', operation: this.JMP, addressingMode: this.addressingModes.IND }, // 6C
-      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ABS }, // 6D
+      { name: 'JMP', operation: this.JMP, addressingMode: this.addressingModes.IND },   // 6C
+      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ABS },   // 6D
       { name: 'ROR', operation: this.ROR, addressingMode: this.addressingModes.ABSRW }, // 6E
       { name: 'RRA', operation: this.RRA, addressingMode: this.addressingModes.ABSRW }, // 6F
 
       // 70
-      { name: 'BVS', operation: this.BVS, addressingMode: this.addressingModes.REL }, // 70
-      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.IZY }, // 71
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 72
+      { name: 'BVS', operation: this.BVS, addressingMode: this.addressingModes.REL },   // 70
+      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.IZY },   // 71
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 72
       { name: 'RRA', operation: this.RRA, addressingMode: this.addressingModes.IZYRW }, // 73
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX }, // 74
-      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ZPX }, // 75
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX },   // 74
+      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ZPX },   // 75
       { name: 'ROR', operation: this.ROR, addressingMode: this.addressingModes.ZPXRW }, // 76
       { name: 'RRA', operation: this.RRA, addressingMode: this.addressingModes.ZPXRW }, // 77
 
-      { name: 'SEI', operation: this.SEI, addressingMode: this.addressingModes.IMP }, // 78
-      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ABYR }, // 79
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP }, // 7A
+      { name: 'SEI', operation: this.SEI, addressingMode: this.addressingModes.IMP },   // 78
+      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ABYR },  // 79
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP },   // 7A
       { name: 'RRA', operation: this.RRA, addressingMode: this.addressingModes.ABYRW }, // 7B
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR }, // 7C
-      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ABXR }, // 7D
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR },  // 7C
+      { name: 'ADC', operation: this.ADC, addressingMode: this.addressingModes.ABXR },  // 7D
       { name: 'ROR', operation: this.ROR, addressingMode: this.addressingModes.ABXRW }, // 7E
       { name: 'RRA', operation: this.RRA, addressingMode: this.addressingModes.ABXRW }, // 7F
 
       // 80
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM }, // 80
-      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.IZX }, // 81
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM }, // 82
-      { name: 'SAX', operation: this.SAX, addressingMode: this.addressingModes.IZX }, // 83
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM },   // 80
+      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.IZX },   // 81
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM },   // 82
+      { name: 'SAX', operation: this.SAX, addressingMode: this.addressingModes.IZX },   // 83
 
-      { name: 'STY', operation: this.STY, addressingMode: this.addressingModes.ZP0 }, // 84
-      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ZP0 }, // 85
-      { name: 'STX', operation: this.STX, addressingMode: this.addressingModes.ZP0 }, // 86
-      { name: 'SAX', operation: this.SAX, addressingMode: this.addressingModes.ZP0 }, // 87
+      { name: 'STY', operation: this.STY, addressingMode: this.addressingModes.ZP0 },   // 84
+      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ZP0 },   // 85
+      { name: 'STX', operation: this.STX, addressingMode: this.addressingModes.ZP0 },   // 86
+      { name: 'SAX', operation: this.SAX, addressingMode: this.addressingModes.ZP0 },   // 87
 
-      { name: 'DEY', operation: this.DEY, addressingMode: this.addressingModes.IMP }, // 88
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM }, // 89
-      { name: 'TXA', operation: this.TXA, addressingMode: this.addressingModes.IMP }, // 8A
-      { name: 'XAA', operation: this.XAA, addressingMode: this.addressingModes.IMM }, // 8B
+      { name: 'DEY', operation: this.DEY, addressingMode: this.addressingModes.IMP },   // 88
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM },   // 89
+      { name: 'TXA', operation: this.TXA, addressingMode: this.addressingModes.IMP },   // 8A
+      { name: 'XAA', operation: this.XAA, addressingMode: this.addressingModes.IMM },   // 8B
 
-      { name: 'STY', operation: this.STY, addressingMode: this.addressingModes.ABS }, // 8C
-      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ABS }, // 8D
-      { name: 'STX', operation: this.STX, addressingMode: this.addressingModes.ABS }, // 8E
-      { name: 'SAX', operation: this.SAX, addressingMode: this.addressingModes.ABS }, // 8F
+      { name: 'STY', operation: this.STY, addressingMode: this.addressingModes.ABS },   // 8C
+      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ABS },   // 8D
+      { name: 'STX', operation: this.STX, addressingMode: this.addressingModes.ABS },   // 8E
+      { name: 'SAX', operation: this.SAX, addressingMode: this.addressingModes.ABS },   // 8F
 
       // 90
-      { name: 'BCC', operation: this.BCC, addressingMode: this.addressingModes.REL }, // 90
-      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.IZY }, // 91
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // 92
-      { name: 'AHX', operation: this.AHX, addressingMode: this.addressingModes.IZY }, // 93
+      { name: 'BCC', operation: this.BCC, addressingMode: this.addressingModes.REL },   // 90
+      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.IZY },   // 91
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // 92
+      { name: 'AHX', operation: this.AHX, addressingMode: this.addressingModes.IZY },   // 93
 
-      { name: 'STY', operation: this.STY, addressingMode: this.addressingModes.ZPX }, // 94
-      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ZPX }, // 95
-      { name: 'STX', operation: this.STX, addressingMode: this.addressingModes.ZPY }, // 96
-      { name: 'SAX', operation: this.SAX, addressingMode: this.addressingModes.ZPY }, // 97
+      { name: 'STY', operation: this.STY, addressingMode: this.addressingModes.ZPX },   // 94
+      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ZPX },   // 95
+      { name: 'STX', operation: this.STX, addressingMode: this.addressingModes.ZPY },   // 96
+      { name: 'SAX', operation: this.SAX, addressingMode: this.addressingModes.ZPY },   // 97
 
-      { name: 'TYA', operation: this.TYA, addressingMode: this.addressingModes.IMP }, // 98
-      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ABYW }, // 99
-      { name: 'TXS', operation: this.TXS, addressingMode: this.addressingModes.IMP }, // 9A
-      { name: 'TAS', operation: this.TAS, addressingMode: this.addressingModes.ABYR }, // 9B
+      { name: 'TYA', operation: this.TYA, addressingMode: this.addressingModes.IMP },   // 98
+      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ABYW },  // 99
+      { name: 'TXS', operation: this.TXS, addressingMode: this.addressingModes.IMP },   // 9A
+      { name: 'TAS', operation: this.TAS, addressingMode: this.addressingModes.ABYR },  // 9B
 
-      { name: 'SHY', operation: this.SHY, addressingMode: this.addressingModes.ABXW }, // 9C
-      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ABXW }, // 9D
-      { name: 'SHX', operation: this.SHX, addressingMode: this.addressingModes.ABYW }, // 9E
-      { name: 'AHX', operation: this.AHX, addressingMode: this.addressingModes.ABYW }, // 9F
+      { name: 'SHY', operation: this.SHY, addressingMode: this.addressingModes.ABXW },  // 9C
+      { name: 'STA', operation: this.STA, addressingMode: this.addressingModes.ABXW },  // 9D
+      { name: 'SHX', operation: this.SHX, addressingMode: this.addressingModes.ABYW },  // 9E
+      { name: 'AHX', operation: this.AHX, addressingMode: this.addressingModes.ABYW },  // 9F
 
       // A0
-      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.IMM }, // A0
-      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.IZX }, // A1
-      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.IMM }, // A2
-      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.IZX }, // A3
+      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.IMM },   // A0
+      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.IZX },   // A1
+      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.IMM },   // A2
+      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.IZX },   // A3
 
-      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.ZP0 }, // A4
-      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ZP0 }, // A5
-      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.ZP0 }, // A6
-      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.ZP0 }, // A7
+      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.ZP0 },   // A4
+      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ZP0 },   // A5
+      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.ZP0 },   // A6
+      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.ZP0 },   // A7
 
-      { name: 'TAY', operation: this.TAY, addressingMode: this.addressingModes.IMP }, // A8
-      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.IMM }, // A9
-      { name: 'TAX', operation: this.TAX, addressingMode: this.addressingModes.IMP }, // AA
-      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.IMM }, // AB
+      { name: 'TAY', operation: this.TAY, addressingMode: this.addressingModes.IMP },   // A8
+      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.IMM },   // A9
+      { name: 'TAX', operation: this.TAX, addressingMode: this.addressingModes.IMP },   // AA
+      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.IMM },   // AB
 
-      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.ABS }, // AC
-      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ABS }, // AD
-      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.ABS }, // AE
-      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.ABS }, // AF
+      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.ABS },   // AC
+      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ABS },   // AD
+      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.ABS },   // AE
+      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.ABS },   // AF
 
       // B0
-      { name: 'BCS', operation: this.BCS, addressingMode: this.addressingModes.REL }, // B0
-      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.IZY }, // B1
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // B2
-      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.IZY }, // B3
+      { name: 'BCS', operation: this.BCS, addressingMode: this.addressingModes.REL },   // B0
+      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.IZY },   // B1
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // B2
+      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.IZY },   // B3
 
-      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.ZPX }, // B4
-      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ZPX }, // B5
-      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.ZPY }, // B6
-      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.ZPY }, // B7
+      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.ZPX },   // B4
+      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ZPX },   // B5
+      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.ZPY },   // B6
+      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.ZPY },   // B7
 
-      { name: 'CLV', operation: this.CLV, addressingMode: this.addressingModes.IMP }, // B8
-      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ABYR }, // B9
-      { name: 'TSX', operation: this.TSX, addressingMode: this.addressingModes.IMP }, // BA
-      { name: 'LAS', operation: this.LAS, addressingMode: this.addressingModes.ABYR }, // BB
+      { name: 'CLV', operation: this.CLV, addressingMode: this.addressingModes.IMP },   // B8
+      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ABYR },  // B9
+      { name: 'TSX', operation: this.TSX, addressingMode: this.addressingModes.IMP },   // BA
+      { name: 'LAS', operation: this.LAS, addressingMode: this.addressingModes.ABYR },  // BB
 
-      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.ABXR }, // BC
-      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ABXR }, // BD
-      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.ABYR }, // BE
-      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.ABYR }, // BF
+      { name: 'LDY', operation: this.LDY, addressingMode: this.addressingModes.ABXR },  // BC
+      { name: 'LDA', operation: this.LDA, addressingMode: this.addressingModes.ABXR },  // BD
+      { name: 'LDX', operation: this.LDX, addressingMode: this.addressingModes.ABYR },  // BE
+      { name: 'LAX', operation: this.LAX, addressingMode: this.addressingModes.ABYR },  // BF
 
       // C0
-      { name: 'CPY', operation: this.CPY, addressingMode: this.addressingModes.IMM }, // C0
-      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.IZX }, // C1
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM }, // C2
+      { name: 'CPY', operation: this.CPY, addressingMode: this.addressingModes.IMM },   // C0
+      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.IZX },   // C1
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM },   // C2
       { name: 'DCP', operation: this.DCP, addressingMode: this.addressingModes.IZXRW }, // C3
 
-      { name: 'CPY', operation: this.CPY, addressingMode: this.addressingModes.ZP0 }, // C4
-      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ZP0 }, // C5
+      { name: 'CPY', operation: this.CPY, addressingMode: this.addressingModes.ZP0 },   // C4
+      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ZP0 },   // C5
       { name: 'DEC', operation: this.DEC, addressingMode: this.addressingModes.ZP0RW }, // C6
       { name: 'DCP', operation: this.DCP, addressingMode: this.addressingModes.ZP0RW }, // C7
 
-      { name: 'INY', operation: this.INY, addressingMode: this.addressingModes.IMP }, // C8
-      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.IMM }, // C9
-      { name: 'DEX', operation: this.DEX, addressingMode: this.addressingModes.IMP }, // CA
-      { name: 'AXS', operation: this.AXS, addressingMode: this.addressingModes.IMM }, // CB
+      { name: 'INY', operation: this.INY, addressingMode: this.addressingModes.IMP },   // C8
+      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.IMM },   // C9
+      { name: 'DEX', operation: this.DEX, addressingMode: this.addressingModes.IMP },   // CA
+      { name: 'AXS', operation: this.AXS, addressingMode: this.addressingModes.IMM },   // CB
 
-      { name: 'CPY', operation: this.CPY, addressingMode: this.addressingModes.ABS }, // CC
-      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ABS }, // CD
+      { name: 'CPY', operation: this.CPY, addressingMode: this.addressingModes.ABS },   // CC
+      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ABS },   // CD
       { name: 'DEC', operation: this.DEC, addressingMode: this.addressingModes.ABSRW }, // CE
       { name: 'DCP', operation: this.DCP, addressingMode: this.addressingModes.ABSRW }, // CF
 
       // D0
-      { name: 'BNE', operation: this.BNE, addressingMode: this.addressingModes.REL }, // D0
-      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.IZY }, // D1
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // D2
+      { name: 'BNE', operation: this.BNE, addressingMode: this.addressingModes.REL },   // D0
+      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.IZY },   // D1
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // D2
       { name: 'DCP', operation: this.DCP, addressingMode: this.addressingModes.IZYRW }, // D3
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX }, // D4
-      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ZPX }, // D5
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX },   // D4
+      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ZPX },   // D5
       { name: 'DEC', operation: this.DEC, addressingMode: this.addressingModes.ZPXRW }, // D6
       { name: 'DCP', operation: this.DCP, addressingMode: this.addressingModes.ZPXRW }, // D7
 
-      { name: 'CLD', operation: this.CLD, addressingMode: this.addressingModes.IMP }, // D8
-      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ABYR }, // D9
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP }, // DA
+      { name: 'CLD', operation: this.CLD, addressingMode: this.addressingModes.IMP },   // D8
+      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ABYR },  // D9
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP },   // DA
       { name: 'DCP', operation: this.DCP, addressingMode: this.addressingModes.ABYRW }, // DB
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR }, // DC
-      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ABXR }, // DD
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR },  // DC
+      { name: 'CMP', operation: this.CMP, addressingMode: this.addressingModes.ABXR },  // DD
       { name: 'DEC', operation: this.DEC, addressingMode: this.addressingModes.ABXRW }, // DE
       { name: 'DCP', operation: this.DCP, addressingMode: this.addressingModes.ABXRW }, // DF
 
       // E0
-      { name: 'CPX', operation: this.CPX, addressingMode: this.addressingModes.IMM }, // E0
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.IZX }, // E1
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM }, // E2
+      { name: 'CPX', operation: this.CPX, addressingMode: this.addressingModes.IMM },   // E0
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.IZX },   // E1
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMM },   // E2
       { name: 'ISB', operation: this.ISB, addressingMode: this.addressingModes.IZXRW }, // E3
 
-      { name: 'CPX', operation: this.CPX, addressingMode: this.addressingModes.ZP0 }, // E4
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ZP0 }, // E5
+      { name: 'CPX', operation: this.CPX, addressingMode: this.addressingModes.ZP0 },   // E4
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ZP0 },   // E5
       { name: 'INC', operation: this.INC, addressingMode: this.addressingModes.ZP0RW }, // E6
       { name: 'ISB', operation: this.ISB, addressingMode: this.addressingModes.ZP0RW }, // E7
 
-      { name: 'INX', operation: this.INX, addressingMode: this.addressingModes.IMP }, // E8
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.IMM }, // E9
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP }, // EA
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.IMM }, // EB
+      { name: 'INX', operation: this.INX, addressingMode: this.addressingModes.IMP },   // E8
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.IMM },   // E9
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP },   // EA
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.IMM },   // EB
 
-      { name: 'CPX', operation: this.CPX, addressingMode: this.addressingModes.ABS }, // EC
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ABS }, // ED
+      { name: 'CPX', operation: this.CPX, addressingMode: this.addressingModes.ABS },   // EC
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ABS },   // ED
       { name: 'INC', operation: this.INC, addressingMode: this.addressingModes.ABSRW }, // EE
       { name: 'ISB', operation: this.ISB, addressingMode: this.addressingModes.ABSRW }, // EF
 
       // F0
-      { name: 'BEQ', operation: this.BEQ, addressingMode: this.addressingModes.REL }, // F0
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.IZY }, // F1
-      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP }, // F2
+      { name: 'BEQ', operation: this.BEQ, addressingMode: this.addressingModes.REL },   // F0
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.IZY },   // F1
+      { name: 'STP', operation: this.STP, addressingMode: this.addressingModes.IMP },   // F2
       { name: 'ISB', operation: this.ISB, addressingMode: this.addressingModes.IZYRW }, // F3
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX }, // F4
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ZPX }, // F5
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ZPX },   // F4
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ZPX },   // F5
       { name: 'INC', operation: this.INC, addressingMode: this.addressingModes.ZPXRW }, // F6
       { name: 'ISB', operation: this.ISB, addressingMode: this.addressingModes.ZPXRW }, // F7
 
-      { name: 'SED', operation: this.SED, addressingMode: this.addressingModes.IMP }, // F8
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ABYR }, // F9
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP }, // FA
+      { name: 'SED', operation: this.SED, addressingMode: this.addressingModes.IMP },   // F8
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ABYR },  // F9
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.IMP },   // FA
       { name: 'ISB', operation: this.ISB, addressingMode: this.addressingModes.ABYRW }, // FB
 
-      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR }, // FC
-      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ABXR }, // FD
+      { name: 'NOP', operation: this.NOP, addressingMode: this.addressingModes.ABXR },  // FC
+      { name: 'SBC', operation: this.SBC, addressingMode: this.addressingModes.ABXR },  // FD
       { name: 'INC', operation: this.INC, addressingMode: this.addressingModes.ABXRW }, // FE
       { name: 'ISB', operation: this.ISB, addressingMode: this.addressingModes.ABXRW }, // FF
     ];
