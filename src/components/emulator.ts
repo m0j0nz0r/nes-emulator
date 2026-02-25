@@ -7,14 +7,14 @@ import { PPU } from './ppu';
 import { EventHandler, Logger } from './eventHandler';
 
 export class Emulator extends EventHandler {
-    constructor (logger?: Logger) {
+    constructor (paletteData: Buffer, logger?: Logger) {
         super(logger);
         this.bus = new Bus();
         this._graphicBus = new Bus();
         this._ram = new RAM(this.bus);
         this.cpu = new Nes6502(this.bus, logger);
         this._cartridge = new Cartridge(this.bus, this._graphicBus);
-        this._ppu = new PPU(this.bus, this._graphicBus);
+        this._ppu = new PPU(this.bus, this._graphicBus, paletteData);
         this._emulation = new NanoTimer();
     }
     public bus: Bus;
@@ -30,6 +30,9 @@ export class Emulator extends EventHandler {
     public ppuClockDivisor: number = 4;
     public cpuCycle: number = this.cpuClockDivisor;
     public ppuCycle: number = this.ppuClockDivisor;
+    public get screen(): Uint8ClampedArray {
+        return this._ppu.screen;
+    }
 
     public start() {
         // normal emulation speed should be 21441960 Hz

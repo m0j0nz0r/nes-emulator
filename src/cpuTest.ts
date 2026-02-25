@@ -97,7 +97,8 @@ function cpuTestLog(emulator: Emulator) {
 export function cpuTest(this: any) {
     console.log('Starting...');
     console.log('Creating emulator...');
-    const emulator = new Emulator(new CustomLogger());
+    const paletteData = fs.readFileSync(path.join(__dirname, 'palettes/2C02G_wiki.pal'));
+    const emulator = new Emulator(paletteData, new CustomLogger());
     console.log('Loading ROM...');
     const rom = fs.readFileSync(path.join(__dirname, 'testRoms/nestest.nes'));
     emulator.loadCartridge(rom);

@@ -2,8 +2,6 @@ import { RAM } from "./RAM";
 import { Bus } from "./bus";
 import { Headers } from "./cartridge/headers";
 
-const mainAddrRange = { minAddr: 0x2000, maxAddr: 0x3fff };
-
 export class Cartridge {
     constructor(mainBus: Bus, graphicsBus: Bus) {
         this._mainBus = mainBus;
