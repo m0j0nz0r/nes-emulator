@@ -409,8 +409,10 @@ export class PPU extends EventHandler{
 
   private _nametableByte: number = 0;
   private _attributeByte: number = 0;
-  private _patternAddress: number = 0;
-  private _evaluateBackground(): number {
+  private _patternLo: number = 0;
+  private _patternHi: number = 0;
+  private _currentAttributeBits: number = 0;
+  private _evaluateBackground(): void {
     /**
      * Fetch a nametable entry from $2000-$2FFF.
      * Fetch the corresponding attribute table entry from $23C0-$2FFF and increment the current VRAM address within the same row.
@@ -418,8 +420,14 @@ export class PPU extends EventHandler{
      * Fetch the high-order byte of this sliver from an address 8 byFtes higher.
      * Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
      */
-    if (this._cycle < 1 || this._cycle > 256) {
-      return 0;
+
+    const bgPatternTableAddress = 
+      this._controlFlags.bgTileSelect
+      | (this._nametableByte << 4)
+      | ((this._V  >> 12) & 0x7);
+
+      if (this._cycle < 1 || this._cycle > 256) {
+      return;
     }
     const subCycle = (this._cycle - 1) % 8;
     switch (subCycle) {
@@ -436,25 +444,53 @@ export class PPU extends EventHandler{
         break;
       case 3:
         this._attributeByte = this._graphicsBus.data;
+        this._currentAttributeBits = this._getAttributeBits();
         break;
       case 4:
         // Fetch low-order byte of pattern table
-        this._graphicsBus.read(0x1000 | (this._V & 0x0FFF));
+        this._graphicsBus.read(bgPatternTableAddress);
         break;
       case 5:
-        this._patternAddress = this._graphicsBus.data;
+        this._patternLo = this._graphicsBus.data << 8;
         // Fetch palette data
         break;
       case 6:
         // Fetch high-order byte of pattern table
-        this._graphicsBus.read(0x1000 | (this._V & 0x0FFF) | 0x0008);
+        this._graphicsBus.read(bgPatternTableAddress | 0x0008);
         break;
       case 7:
-        this._patternAddress = (this._patternAddress & 0x00FF) | (this._graphicsBus.data << 8);
+        this._patternHi = this._graphicsBus.data << 8;
         break;
     }
-    const bgPaletteIndex = this._attributeByte & 0x03;
-    return this._palette[bgPaletteIndex];
+
+    const patternBitHi = (this._patternHi >> this._X) & 0x1;
+    const patternBitLo = (this._patternLo >> this._X) & 0x1;
+    const patternIndex = patternBitHi << 1 | patternBitLo;
+    const bgPaletteIndex = ((this._currentAttributeBits) << 2) | patternIndex;
+
+    this._patternLo >>= 1;
+    this._patternHi >>= 1;
+
+    if (this.isVisibleScanline) {
+      const pixelIndex = (this._scanline * 256 + this._cycle - 1) * 4;
+      const colorOffset = bgPaletteIndex * 3;
+      this._screen[pixelIndex] = this._palette[colorOffset];     // R
+      this._screen[pixelIndex + 1] = this._palette[colorOffset + 1]; // G  
+      this._screen[pixelIndex + 2] = this._palette[colorOffset + 2]; // B
+      this._screen[pixelIndex + 3] = 255;      // A   
+    }
+  }
+  
+  private _getAttributeBits(): number {
+    const coarseX = (this._V & 0x1F);
+    const coarseY = (this._V & 0x03E0) >> 5;
+
+    const tileX = coarseX & 0x1;
+    const tileY = coarseY & 0x1;
+
+    const pos = tileY << 1 | tileX;
+
+    return (this._attributeByte >> (pos << 1)) & 0x03;
   }
 
   public loadPalette(paletteData: Buffer) {

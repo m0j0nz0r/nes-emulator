@@ -75,4 +75,13 @@ export class Emulator extends EventHandler {
     public loadCartridge(rom: Buffer) {
         this._cartridge?.load(rom);
     }
+
+    private _setupEventListeners() {
+      this.cpu.on('fetch', (event) => {
+        this.broadcast('cpu:fetch', event);
+      });
+      this._ppu.on('frame', (event) => {
+        this.broadcast('ppu:frame', event);
+      });
+    }
 }
