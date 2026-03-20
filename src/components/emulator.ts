@@ -1,87 +1,91 @@
 import * as NanoTimer from 'nanotimer';
-import { Bus } from './bus';
-import { RAM } from './RAM';
-import { Nes6502 } from './nes6502';
-import { Cartridge } from './cartridge';
-import { PPU } from './ppu';
-import { EventHandler, Logger } from './eventHandler';
+import {Bus} from './bus';
+import {RAM} from './RAM';
+import {Nes6502} from './nes6502';
+import {Cartridge} from './cartridge';
+import {PPU} from './ppu';
+import {EventHandler, Logger} from './eventHandler';
+import {defaultPaletteData} from '../palettes/defaultPalette';
 
 export class Emulator extends EventHandler {
-    constructor (paletteData: Buffer, logger?: Logger) {
-        super(logger);
-        this.bus = new Bus();
-        this._graphicBus = new Bus();
-        this._ram = new RAM(this.bus);
-        this.cpu = new Nes6502(this.bus, logger);
-        this._cartridge = new Cartridge(this.bus, this._graphicBus);
-        this._ppu = new PPU(this.bus, this._graphicBus, paletteData);
-        this._emulation = new NanoTimer();
-    }
-    public bus: Bus;
-    private _graphicBus: Bus;
-    private _ram: RAM;
-    public cpu: Nes6502;
-    private _ppu: PPU;
-    private _cartridge: Cartridge;
-    private _emulation: NanoTimer;
+  constructor(paletteData: Buffer = defaultPaletteData, logger?: Logger) {
+    super(logger);
+    this.bus = new Bus();
+    this._graphicBus = new Bus();
+    this._ram = new RAM(this.bus);
+    this.cpu = new Nes6502(this.bus, logger);
+    this._cartridge = new Cartridge(this.bus, this._graphicBus);
+    this._ppu = new PPU(this.bus, this._graphicBus, paletteData);
+    this._emulation = new NanoTimer();
+  }
+  public bus: Bus;
+  private _graphicBus: Bus;
+  private _ram: RAM;
+  public cpu: Nes6502;
+  private _ppu: PPU;
+  private _cartridge: Cartridge;
+  private _emulation: NanoTimer;
 
-    public cycle: number = 0;
-    public cpuClockDivisor: number = 12;
-    public ppuClockDivisor: number = 4;
-    public cpuCycle: number = this.cpuClockDivisor;
-    public ppuCycle: number = this.ppuClockDivisor;
-    public get screen(): Uint8ClampedArray {
-        return this._ppu.screen;
-    }
+  public cycle = 0;
+  public cpuClockDivisor = 12;
+  public ppuClockDivisor = 4;
+  public cpuCycle: number = this.cpuClockDivisor;
+  public ppuCycle: number = this.ppuClockDivisor;
+  public get screen(): Uint8ClampedArray {
+    return this._ppu.screen;
+  }
 
-    public start() {
-        // normal emulation speed should be 21441960 Hz
-        this.bus.read(this.cpu.pc);
-        this._emulation.setInterval(() => {
-            this.clock();
-        }, '', '46n');
-    }
-    public stop() {
-        this._emulation.clearInterval();
-        this.broadcast('stop');
-    }
-    public clock () {
-        this.cycle++;
-        try {
-            this._ram.clock();
-            this._cartridge.clock();
+  public start() {
+    // normal emulation speed should be 21441960 Hz
+    this.bus.read(this.cpu.pc);
+    this._emulation.setInterval(
+      () => {
+        this.clock();
+      },
+      '',
+      '46n'
+    );
+  }
+  public stop() {
+    this._emulation.clearInterval();
+    this.broadcast('stop');
+  }
+  public clock() {
+    this.cycle++;
+    try {
+      this._ram.clock();
+      this._cartridge.clock();
 
-            // cpu clock ticks
-            this.cpuCycle--;
-            if (!this.cpuCycle) {
-                this.cpuCycle = this.cpuClockDivisor;
-                this.cpu.clock();
-            }
+      // cpu clock ticks
+      this.cpuCycle--;
+      if (!this.cpuCycle) {
+        this.cpuCycle = this.cpuClockDivisor;
+        this.cpu.clock();
+      }
 
-            // ppu clock ticks
-            this.ppuCycle--;
-            if(!this.ppuCycle) {
-                this.ppuCycle = this.ppuClockDivisor;
-                this._ppu.clock();
-            }
-    
-        } catch(e) {
-            this.cpu.microCodeStack.push(() => {
-                console.log(e);
-                this.stop();
-            });
-        }
-    }
-    public loadCartridge(rom: Buffer) {
-        this._cartridge?.load(rom);
-    }
-
-    private _setupEventListeners() {
-      this.cpu.on('fetch', (event) => {
-        this.broadcast('cpu:fetch', event);
-      });
-      this._ppu.on('frame', (event) => {
-        this.broadcast('ppu:frame', event);
+      // ppu clock ticks
+      this.ppuCycle--;
+      if (!this.ppuCycle) {
+        this.ppuCycle = this.ppuClockDivisor;
+        this._ppu.clock();
+      }
+    } catch (e) {
+      this.cpu.microCodeStack.push(() => {
+        console.log(e);
+        this.stop();
       });
     }
+  }
+  public loadCartridge(rom: Buffer) {
+    this._cartridge?.load(rom);
+  }
+
+  private _setupEventListeners() {
+    this.cpu.on('fetch', event => {
+      this.broadcast('cpu:fetch', event);
+    });
+    this._ppu.on('frame', event => {
+      this.broadcast('ppu:frame', event);
+    });
+  }
 }

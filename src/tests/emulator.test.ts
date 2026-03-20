@@ -1,13 +1,11 @@
-import { Emulator } from '../components/emulator';
-import * as fs from 'fs';
-import *  as path from 'path';
+import {Emulator} from '../components/emulator';
+import {defaultPaletteData} from '../palettes/defaultPalette';
 
 describe('Emulator', () => {
   let emulator: Emulator;
 
   beforeEach(() => {
-    const paletteData = fs.readFileSync(path.join(__dirname, '../palettes/2C02G_wiki.pal'));
-    emulator = new Emulator(paletteData);
+    emulator = new Emulator(defaultPaletteData);
   });
 
   test('should initialize correctly', () => {

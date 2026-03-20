@@ -1,2 +1,2 @@
-import { Emulator } from "./components/emulator";
-export { Emulator };
+import {Emulator} from './components/emulator';
+export {Emulator};
