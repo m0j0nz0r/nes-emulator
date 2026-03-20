@@ -1,8 +1,8 @@
 export interface Logger {
-  log: (message?: any, ...optionalParams: any[]) => void;
+  log: (message?: string, ...optionalParams: string[]) => void;
 }
 
-type EventHandlerFunction = (eventObject?: any) => void;
+type EventHandlerFunction = (eventObject?: unknown) => void;
 
 class DummyLogger implements Logger {
   log() {}
@@ -34,7 +34,7 @@ export class EventHandler {
     delete handlerArray[handlerId];
     return true;
   }
-  broadcast(event: string, eventObject?: any) {
+  broadcast(event: string, eventObject?: unknown) {
     this._eventDictionary[event]?.forEach(
       handler => handler && handler(eventObject)
     );

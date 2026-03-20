@@ -1477,8 +1477,7 @@ export class Nes6502 extends EventHandler {
   ASL() {
     // Arithmetic shift(1) left
     let result = 0;
-    const p = this;
-    function setFlags(result: number) {
+    function setFlags(p: Nes6502, result: number) {
       p.setFlag(Flags.N, result & 0x80); // test bit 7
       p.setFlag(Flags.Z, !(result & 0xff));
       p.setFlag(Flags.C, result & 0x100); // test bit 8
@@ -1487,13 +1486,13 @@ export class Nes6502 extends EventHandler {
       this.microCodeStack.push(() => {
         result = this.a << 1;
         this.a = result & 0xff;
-        setFlags(result);
+        setFlags(this, result);
       });
     } else {
       this.microCodeStack.push(() => {
         result = this.bus.data << 1;
         this.bus.write(this.bus.addr, result & 0xff);
-        setFlags(result);
+        setFlags(this, result);
       });
       this.NOP(); // allow the result to be saved before fetching the next instruction.
     }
@@ -1836,8 +1835,7 @@ export class Nes6502 extends EventHandler {
   }
   ROL() {
     // Rotate Left
-    const p = this;
-    function rotate(v: number): number {
+    function rotate(p: Nes6502, v: number): number {
       let result = v << 1;
 
       // set b0 to the value of the carry flag
@@ -1854,19 +1852,18 @@ export class Nes6502 extends EventHandler {
     }
     if (this.fetch?.addressingMode === this.addressingModes.IMP) {
       this.microCodeStack.push(() => {
-        this.a = rotate(this.a) & 0xff;
+        this.a = rotate(this, this.a) & 0xff;
       });
     } else {
       this.microCodeStack.push(() => {
-        this.bus.write(this.bus.addr, rotate(this.bus.data) & 0xff);
+        this.bus.write(this.bus.addr, rotate(this, this.bus.data) & 0xff);
       });
       this.NOP();
     }
   }
   ROR() {
     // Rotate right
-    const p = this;
-    function rotate(v: number): number {
+    function rotate(p: Nes6502, v: number): number {
       let result = v >> 1;
 
       // set b7 to the value of the carry flag.
@@ -1883,11 +1880,11 @@ export class Nes6502 extends EventHandler {
     }
     if (this.fetch?.addressingMode === this.addressingModes.IMP) {
       this.microCodeStack.push(() => {
-        this.a = rotate(this.a) & 0xff;
+        this.a = rotate(this, this.a) & 0xff;
       });
     } else {
       this.microCodeStack.push(() => {
-        this.bus.write(this.bus.addr, rotate(this.bus.data) & 0xff);
+        this.bus.write(this.bus.addr, rotate(this, this.bus.data) & 0xff);
       });
       this.NOP();
     }
@@ -2230,7 +2227,7 @@ export class Nes6502 extends EventHandler {
   }
   public count = 0;
   public getFlag(flag: Flags): number {
-    return (this.status & flag) != 0 ? 1 : 0;
+    return (this.status & flag) !== 0 ? 1 : 0;
   }
   public setFlag(flag: Flags, value: number | boolean) {
     if (value) {

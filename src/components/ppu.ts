@@ -353,6 +353,7 @@ export class PPU extends EventHandler {
 
     const isRenderingEnabled =
       this._maskFlags.showBg || this._maskFlags.showSprites;
+    const horizontalPositionCopyMask = 0b1111011_11100000;
     if (isRenderingEnabled) {
       switch (this._cycle) {
         case 256:
@@ -361,8 +362,9 @@ export class PPU extends EventHandler {
           break;
         case 257:
           // copy horizontal position from t to v
-          const mask = 0b1111011_11100000;
-          this._V = (this._V & mask) | (this._T & ~mask);
+          this._V =
+            (this._V & horizontalPositionCopyMask) |
+            (this._T & ~horizontalPositionCopyMask);
           break;
         case 338:
         case 340:

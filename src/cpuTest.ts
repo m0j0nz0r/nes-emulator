@@ -11,15 +11,14 @@ class CustomLogger implements Logger {
   }
   private _targetLog: string[];
 
-  log(message?: any, ...optionalParams: any[]) {
-    const logger = this;
+  log(message?: string, ...optionalParams: string[]) {
     let finalMessage = '';
     finalMessage += message;
     if (optionalParams) {
       optionalParams.reduce((pv, cv) => pv + cv, finalMessage);
     }
 
-    function checkLog(finalMessage: string): string {
+    function checkLog(logger: CustomLogger, finalMessage: string): string {
       const msgArray = finalMessage.trim().split(' ');
       const idx = Number.parseInt(msgArray[0]) - 1;
       const log = logger._targetLog[idx];
@@ -64,11 +63,9 @@ class CustomLogger implements Logger {
       return log;
     }
     try {
-      const check = checkLog(finalMessage);
-      if (check) {
-      }
+      const check = checkLog(this, finalMessage);
       console.log(finalMessage + ' | ' + check);
-    } catch (e: any) {
+    } catch (e) {
       console.error('%c' + finalMessage + ' | ' + e, 'color:red');
       throw new Error(`${e}`.replace(/(Error:\s*)+/g, ''));
     }
@@ -96,7 +93,7 @@ function cpuTestLog(emulator: Emulator) {
   emulator.logger.log(log);
 }
 
-export function cpuTest(this: any) {
+export function cpuTest() {
   console.log('Starting...');
   console.log('Creating emulator...');
   const paletteData = fs.readFileSync(
