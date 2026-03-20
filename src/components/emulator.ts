@@ -1,6 +1,4 @@
 import * as NanoTimer from 'nanotimer';
-import * as fs from 'fs';
-import * as path from 'path';
 import { Bus } from './bus';
 import { RAM } from './RAM';
 import { Nes6502 } from './nes6502';
@@ -8,10 +6,8 @@ import { Cartridge } from './cartridge';
 import { PPU } from './ppu';
 import { EventHandler, Logger } from './eventHandler';
 
-const defaultPaletteData = fs.readFileSync(path.join(__dirname, '../palettes/2C02G_wiki.pal'));
-
 export class Emulator extends EventHandler {
-    constructor (paletteData: Buffer = defaultPaletteData, logger?: Logger) {
+    constructor (paletteData: Buffer, logger?: Logger) {
         super(logger);
         this.bus = new Bus();
         this._graphicBus = new Bus();
