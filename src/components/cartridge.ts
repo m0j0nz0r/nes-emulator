@@ -40,7 +40,7 @@ export class Cartridge {
     // load PRG_ROM
     this._prgRom = new RAM(
       this._mainBus,
-      rom.subarray(offset, this._headers.prgRomSize),
+      rom.subarray(offset, this._headers.prgRomSize + offset),
       {minAddr: 0x8000, maxAddr: 0xffff},
       this._headers.prgRomSize > 0x4000 ? 0x7fff : 0x3fff
     );
@@ -49,7 +49,7 @@ export class Cartridge {
 
     // load CHR_ROM
     if (this._headers.chrRomSize) {
-      const chrRom = rom.subarray(offset, this._headers.chrRomSize);
+      const chrRom = rom.subarray(offset, this._headers.chrRomSize + offset);
       offset += this._headers.chrRomSize;
 
       this._chrRom = new RAM(
@@ -61,8 +61,10 @@ export class Cartridge {
     }
 
     // load misc rom
+    let miscRomSize = rom.byteLength - offset;
     if (offset !== rom.byteLength) {
-      const misc = rom.subarray(offset, rom.byteLength);
+      const misc = rom.subarray(offset);
+      miscRomSize = misc.byteLength;
       this._miscRom = new RAM(
         this._mainBus,
         misc,

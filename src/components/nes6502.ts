@@ -16,7 +16,7 @@ enum Flags {
 interface Instruction {
   name: string;
   operation: () => void;
-  addressingMode: () => void;
+  addressingMode: (cpu: Nes6502) => void;
 }
 
 export class Nes6502 extends EventHandler {
@@ -1385,6 +1385,7 @@ export class Nes6502 extends EventHandler {
         addressingMode: this.addressingModes.ABXRW,
       }, // FF
     ];
+    this.reset();
   }
   public cycle = 0;
   public bus: Bus;
@@ -2216,8 +2217,8 @@ export class Nes6502 extends EventHandler {
     } else {
       this.fetch = this.opCodeLookup[this.bus.data];
       this.count++;
-      this.broadcast('fetch');
-      this.fetch.addressingMode.call(this);
+      this.broadcast('fetch', this.fetch.name);
+      this.fetch.addressingMode(this);
       this.fetch.operation.call(this);
 
       const microCode = this.microCodeStack.shift();

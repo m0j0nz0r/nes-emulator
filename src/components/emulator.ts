@@ -17,6 +17,7 @@ export class Emulator extends EventHandler {
     this._cartridge = new Cartridge(this.bus, this._graphicBus);
     this._ppu = new PPU(this.bus, this._graphicBus, paletteData);
     this._emulation = new NanoTimer();
+    this._setupEventListeners();
   }
   public bus: Bus;
   private _graphicBus: Bus;
@@ -37,7 +38,6 @@ export class Emulator extends EventHandler {
 
   public start() {
     // normal emulation speed should be 21441960 Hz
-    this.bus.read(this.cpu.pc);
     this._emulation.setInterval(
       () => {
         this.clock();

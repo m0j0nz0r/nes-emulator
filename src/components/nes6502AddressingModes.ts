@@ -1,323 +1,321 @@
 import {Nes6502} from './nes6502';
 
 export class Nes6502AddressingModes {
-  private cpu: Nes6502;
 
   constructor(cpu: Nes6502) {
-    this.cpu = cpu;
   }
 
   NUL() {} // Dummy Instruction/Adressing mode.
-  IMP() {
+  IMP(cpu: Nes6502) {
     // Implied
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.data = this.cpu.a;
-      this.cpu.pc++;
+    cpu.microCodeStack.push(() => {
+      cpu.bus.data = cpu.a;
+      cpu.pc++;
     });
   }
-  IMM() {
+  IMM(cpu: Nes6502) {
     // Immediate            #v
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
-      this.cpu.pc++;
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
+      cpu.pc++;
     });
   }
-  ZP0() {
+  ZP0(cpu: Nes6502) {
     // Zero Page            d
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.read(this.cpu.bus.data & 0xff);
-      this.cpu.pc++;
-    });
-  }
-  ZP0RW() {
-    this.ZP0();
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.write(this.cpu.bus.addr, this.cpu.bus.data);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.read(cpu.bus.data & 0xff);
+      cpu.pc++;
     });
   }
-  private _ZPI(reg: number) {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
-    });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu._t = this.cpu.bus.data + reg;
-    });
-    this.cpu.microCodeStack.push(() => this.cpu.bus.read(this.cpu._t & 0xff));
-  }
-  private _ZPIRW(reg: number) {
-    this._ZPI(reg);
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.write(this.cpu.bus.addr, this.cpu.bus.data);
+  ZP0RW(cpu: Nes6502) {
+    this.ZP0(cpu);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
   }
-  ZPX() {
-    this._ZPI(this.cpu.x);
-  }
-  ZPY() {
-    this._ZPI(this.cpu.y);
-  }
-  ZPXRW() {
-    this._ZPIRW(this.cpu.x);
-  }
-  ZPYRW() {
-    this._ZPIRW(this.cpu.y);
-  }
-  ABS() {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  private _ZPI(cpu: Nes6502, reg: number) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data;
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
-      this.cpu.pc++;
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu._t = cpu.bus.data + reg;
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.absRead();
+    cpu.microCodeStack.push(() => cpu.bus.read(cpu._t & 0xff));
+  }
+  private _ZPIRW(cpu: Nes6502, reg: number) {
+    this._ZPI(cpu, reg);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
   }
-  ABSRW() {
-    this.ABS();
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.write(this.cpu.bus.addr, this.cpu.bus.data);
+  ZPX(cpu: Nes6502) {
+    this._ZPI(cpu, cpu.x);
+  }
+  ZPY(cpu: Nes6502) {
+    this._ZPI(cpu, cpu.y);
+  }
+  ZPXRW(cpu: Nes6502) {
+    this._ZPIRW(cpu, cpu.x);
+  }
+  ZPYRW(cpu: Nes6502) {
+    this._ZPIRW(cpu, cpu.y);
+  }
+  ABS(cpu: Nes6502) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
+    });
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data;
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
+      cpu.pc++;
+    });
+    cpu.microCodeStack.push(() => {
+      cpu.absRead();
     });
   }
-  REL() {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  ABSRW(cpu: Nes6502) {
+    this.ABS(cpu);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
   }
-  IND() {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  REL(cpu: Nes6502) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data;
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  }
+  IND(cpu: Nes6502) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.read((this.cpu.bus.data << 8) | this.cpu._t);
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data;
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data;
-      this.cpu.bus.read(
-        (this.cpu.bus.addr & 0xff00) | ((this.cpu.bus.addr + 1) & 0xff)
+    cpu.microCodeStack.push(() => {
+      cpu.bus.read((cpu.bus.data << 8) | cpu._t);
+    });
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data;
+      cpu.bus.read(
+        (cpu.bus.addr & 0xff00) | ((cpu.bus.addr + 1) & 0xff)
       );
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.absRead();
+    cpu.microCodeStack.push(() => {
+      cpu.absRead();
     });
   }
-  private _ABIR(reg: number) {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  private _ABIR(cpu: Nes6502, reg: number) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data;
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data;
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    const op = this.cpu.fetch?.name || '';
+    const op = cpu.fetch?.name || '';
     if (['STA', 'STX', 'STY', 'SHA', 'SHX', 'SHY'].includes(op)) {
-      this.cpu.microCodeStack.push(() => {
-        const lo = this.cpu._t + reg;
-        const hi = this.cpu.bus.data << 8;
-        this.cpu.bus.read(hi + (lo & 0xff));
-        this.cpu.pc++;
-        this.cpu.microCodeStack.unshift(() => {
-          this.cpu.bus.write(hi + lo, this.cpu.bus.data);
+      cpu.microCodeStack.push(() => {
+        const lo = cpu._t + reg;
+        const hi = cpu.bus.data << 8;
+        cpu.bus.read(hi + (lo & 0xff));
+        cpu.pc++;
+        cpu.microCodeStack.unshift(() => {
+          cpu.bus.write(hi + lo, cpu.bus.data);
         });
       });
       return;
     }
-    this.cpu.microCodeStack.push(() => {
-      const lo = this.cpu._t + reg;
-      const hi = this.cpu.bus.data << 8;
-      this.cpu.bus.read(hi + (lo & 0xff));
+    cpu.microCodeStack.push(() => {
+      const lo = cpu._t + reg;
+      const hi = cpu.bus.data << 8;
+      cpu.bus.read(hi + (lo & 0xff));
       if (lo > 0xff) {
-        this.cpu.microCodeStack.unshift(() => this.cpu.bus.read(hi + lo));
+        cpu.microCodeStack.unshift(() => cpu.bus.read(hi + lo));
       }
-      this.cpu.pc++;
+      cpu.pc++;
     });
   }
-  private _ABIW(reg: number) {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  private _ABIW(cpu: Nes6502, reg: number) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data;
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data;
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      const lo = this.cpu._t + reg;
-      const hi = this.cpu.bus.data << 8;
-      this.cpu.bus.read(hi + (lo & 0xff));
-      this.cpu.pc++;
-      this.cpu.microCodeStack.unshift(() => {
-        this.cpu.bus.write(hi + lo, this.cpu.bus.data);
+    cpu.microCodeStack.push(() => {
+      const lo = cpu._t + reg;
+      const hi = cpu.bus.data << 8;
+      cpu.bus.read(hi + (lo & 0xff));
+      cpu.pc++;
+      cpu.microCodeStack.unshift(() => {
+        cpu.bus.write(hi + lo, cpu.bus.data);
       });
     });
   }
-  private _ABIRW(reg: number) {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  private _ABIRW(cpu: Nes6502, reg: number) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data;
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data;
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      const lo = this.cpu._t + reg;
-      const hi = this.cpu.bus.data << 8;
-      this.cpu.bus.read(hi + (lo & 0xff));
-      this.cpu.microCodeStack.unshift(() => this.cpu.bus.read(hi + lo));
-      this.cpu.pc++;
+    cpu.microCodeStack.push(() => {
+      const lo = cpu._t + reg;
+      const hi = cpu.bus.data << 8;
+      cpu.bus.read(hi + (lo & 0xff));
+      cpu.microCodeStack.unshift(() => cpu.bus.read(hi + lo));
+      cpu.pc++;
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.write(this.cpu.bus.addr, this.cpu.bus.data);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
   }
-  ABXR() {
-    this._ABIR(this.cpu.x);
+  ABXR(cpu: Nes6502) {
+    this._ABIR(cpu, cpu.x);
   }
-  ABYR() {
-    this._ABIR(this.cpu.y);
+  ABYR(cpu: Nes6502) {
+    this._ABIR(cpu, cpu.y);
   }
-  ABXW() {
-    this._ABIW(this.cpu.x);
+  ABXW(cpu: Nes6502) {
+    this._ABIW(cpu, cpu.x);
   }
-  ABYW() {
-    this._ABIW(this.cpu.y);
+  ABYW(cpu: Nes6502) {
+    this._ABIW(cpu, cpu.y);
   }
-  ABXRW() {
-    this._ABIRW(this.cpu.x);
+  ABXRW(cpu: Nes6502) {
+    this._ABIRW(cpu, cpu.x);
   }
-  ABYRW() {
-    this._ABIRW(this.cpu.y);
+  ABYRW(cpu: Nes6502) {
+    this._ABIRW(cpu, cpu.y);
   }
-  IZX() {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  IZX(cpu: Nes6502) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() =>
-      this.cpu.bus.read(this.cpu.bus.data & 0xff)
+    cpu.microCodeStack.push(() =>
+      cpu.bus.read(cpu.bus.data & 0xff)
     );
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.read((this.cpu.bus.addr + this.cpu.x) & 0xff);
-      this.cpu.pc++;
+    cpu.microCodeStack.push(() => {
+      cpu.bus.read((cpu.bus.addr + cpu.x) & 0xff);
+      cpu.pc++;
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data;
-      this.cpu.bus.read((this.cpu.bus.addr + 1) & 0xff);
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data;
+      cpu.bus.read((cpu.bus.addr + 1) & 0xff);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.read((this.cpu.bus.data << 8) + this.cpu._t);
-    });
-  }
-  IZXRW() {
-    this.IZX();
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.write(this.cpu.bus.addr, this.cpu.bus.data);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.read((cpu.bus.data << 8) + cpu._t);
     });
   }
-  IZY() {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  IZXRW(cpu: Nes6502) {
+    this.IZX(cpu);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.bus.data & 0xff);
+  }
+  IZY(cpu: Nes6502) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data + this.cpu.y;
-      this.cpu.bus.read((this.cpu.bus.addr + 1) & 0xff);
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.bus.data & 0xff);
     });
-    const op = this.cpu.fetch?.operation;
-    if (op === this.cpu.STA || op === this.cpu.SAX) {
-      this.cpu.microCodeStack.push(() => {
-        const hi = this.cpu.bus.data << 8;
-        const lo = this.cpu._t;
-        this.cpu.bus.read(hi + lo);
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data + cpu.y;
+      cpu.bus.read((cpu.bus.addr + 1) & 0xff);
+    });
+    const op = cpu.fetch?.operation;
+    if (op === cpu.STA || op === cpu.SAX) {
+      cpu.microCodeStack.push(() => {
+        const hi = cpu.bus.data << 8;
+        const lo = cpu._t;
+        cpu.bus.read(hi + lo);
       });
-      this.cpu.microCodeStack.push(() => {
-        this.cpu.bus.write(this.cpu.bus.addr, this.cpu.bus.data);
+      cpu.microCodeStack.push(() => {
+        cpu.bus.write(cpu.bus.addr, cpu.bus.data);
       });
       return;
     }
-    this.cpu.microCodeStack.push(() => {
-      const hi = this.cpu.bus.data << 8;
-      const lo = this.cpu._t;
-      this.cpu.bus.read(hi | (lo & 0xff));
+    cpu.microCodeStack.push(() => {
+      const hi = cpu.bus.data << 8;
+      const lo = cpu._t;
+      cpu.bus.read(hi | (lo & 0xff));
       if (lo > 0xff) {
-        this.cpu.microCodeStack.unshift(() => {
-          this.cpu.bus.read(hi + lo);
+        cpu.microCodeStack.unshift(() => {
+          cpu.bus.read(hi + lo);
         });
       }
     });
   }
-  IZYW() {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  IZYW(cpu: Nes6502) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.bus.data & 0xff);
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.bus.data & 0xff);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data + this.cpu.y;
-      this.cpu.bus.read((this.cpu.bus.addr + 1) & 0xff);
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data + cpu.y;
+      cpu.bus.read((cpu.bus.addr + 1) & 0xff);
     });
-    this.cpu.microCodeStack.push(() => {
-      const hi = this.cpu.bus.data << 8;
-      const lo = this.cpu._t;
-      this.cpu.bus.read(hi + lo);
+    cpu.microCodeStack.push(() => {
+      const hi = cpu.bus.data << 8;
+      const lo = cpu._t;
+      cpu.bus.read(hi + lo);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.write(this.cpu.bus.addr, this.cpu.bus.data);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
   }
-  IZYRW() {
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.pc);
+  IZYRW(cpu: Nes6502) {
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.pc);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.pc++;
-      this.cpu.bus.read(this.cpu.bus.data & 0xff);
+    cpu.microCodeStack.push(() => {
+      cpu.pc++;
+      cpu.bus.read(cpu.bus.data & 0xff);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu._t = this.cpu.bus.data + this.cpu.y;
-      this.cpu.bus.read((this.cpu.bus.addr + 1) & 0xff);
+    cpu.microCodeStack.push(() => {
+      cpu._t = cpu.bus.data + cpu.y;
+      cpu.bus.read((cpu.bus.addr + 1) & 0xff);
     });
-    this.cpu.microCodeStack.push(() => {
-      const hi = this.cpu.bus.data << 8;
-      const lo = this.cpu._t;
-      this.cpu.bus.read(hi + lo);
+    cpu.microCodeStack.push(() => {
+      const hi = cpu.bus.data << 8;
+      const lo = cpu._t;
+      cpu.bus.read(hi + lo);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.read(this.cpu.bus.addr);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.read(cpu.bus.addr);
     });
-    this.cpu.microCodeStack.push(() => {
-      this.cpu.bus.write(this.cpu.bus.addr, this.cpu.bus.data);
+    cpu.microCodeStack.push(() => {
+      cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
   }
 }

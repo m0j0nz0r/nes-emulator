@@ -4,8 +4,8 @@
   "name": "nes-emulator",
   "version": "1.0.0",
   "description": "A Nintendo Entertainment System (NES) emulator written in TypeScript.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "build/src/index.js",
+  "types": "build/src/index.d.ts",
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/nanotimer": "^0.3.2",
