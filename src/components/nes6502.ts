@@ -23,7 +23,7 @@ export class Nes6502 extends EventHandler {
   constructor(bus: Bus, logger?: Logger) {
     super(logger);
     this.bus = bus;
-    this.addressingModes = new Nes6502AddressingModes(this);
+    this.addressingModes = new Nes6502AddressingModes();
     this.opCodeLookup = [
       // 00
       {
@@ -1619,7 +1619,7 @@ export class Nes6502 extends EventHandler {
     this.microCodeStack.push(() => {
       this.pc |= this.bus.data << 8;
     });
-    throw new Error('Break!');
+    throw new Error(`Break! PC: ${this.pc.toString(16)} Status: ${this.status.toString(16)}`);
   }
   private _CPA(reg: number) {
     // generic compare
@@ -2174,6 +2174,7 @@ export class Nes6502 extends EventHandler {
     });
   }
   nmi() {
+    console.log('NMI! CPU');
     this.microCodeStack.push(() => {
       this.pushStack(this.pc >> 8);
     });
@@ -2212,12 +2213,12 @@ export class Nes6502 extends EventHandler {
 
       // after every op is done, fetch next instruction.
       if (!this.microCodeStack.length) {
+        this.broadcast('fetch', this.fetch?.name || '');
         this.bus.read(this.pc);
       }
     } else {
       this.fetch = this.opCodeLookup[this.bus.data];
       this.count++;
-      this.broadcast('fetch', this.fetch.name);
       this.fetch.addressingMode(this);
       this.fetch.operation.call(this);
 

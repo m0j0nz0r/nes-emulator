@@ -2,7 +2,14 @@ import {Nes6502} from './nes6502';
 
 export class Nes6502AddressingModes {
 
-  constructor(cpu: Nes6502) {
+  public static instance = new Nes6502AddressingModes();
+
+  constructor() {
+    if (Nes6502AddressingModes.instance) {
+      return Nes6502AddressingModes.instance;
+    }
+    Nes6502AddressingModes.instance = this;
+    return this;
   }
 
   NUL() {} // Dummy Instruction/Adressing mode.
@@ -33,7 +40,7 @@ export class Nes6502AddressingModes {
     });
   }
   ZP0RW(cpu: Nes6502) {
-    this.ZP0(cpu);
+    Nes6502AddressingModes.instance.ZP0(cpu);
     cpu.microCodeStack.push(() => {
       cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
@@ -50,22 +57,22 @@ export class Nes6502AddressingModes {
     cpu.microCodeStack.push(() => cpu.bus.read(cpu._t & 0xff));
   }
   private _ZPIRW(cpu: Nes6502, reg: number) {
-    this._ZPI(cpu, reg);
+    Nes6502AddressingModes.instance._ZPI(cpu, reg);
     cpu.microCodeStack.push(() => {
       cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
   }
   ZPX(cpu: Nes6502) {
-    this._ZPI(cpu, cpu.x);
+    Nes6502AddressingModes.instance._ZPI(cpu, cpu.x);
   }
   ZPY(cpu: Nes6502) {
-    this._ZPI(cpu, cpu.y);
+    Nes6502AddressingModes.instance._ZPI(cpu, cpu.y);
   }
   ZPXRW(cpu: Nes6502) {
-    this._ZPIRW(cpu, cpu.x);
+    Nes6502AddressingModes.instance._ZPIRW(cpu, cpu.x);
   }
   ZPYRW(cpu: Nes6502) {
-    this._ZPIRW(cpu, cpu.y);
+    Nes6502AddressingModes.instance._ZPIRW(cpu, cpu.y);
   }
   ABS(cpu: Nes6502) {
     cpu.microCodeStack.push(() => {
@@ -83,7 +90,7 @@ export class Nes6502AddressingModes {
     });
   }
   ABSRW(cpu: Nes6502) {
-    this.ABS(cpu);
+    Nes6502AddressingModes.instance.ABS(cpu);
     cpu.microCodeStack.push(() => {
       cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });
@@ -117,6 +124,9 @@ export class Nes6502AddressingModes {
       cpu.absRead();
     });
   }
+  private _ABIRspecialOps = new Set([
+    'STA', 'STX', 'STY', 'SHA', 'SHX', 'SHY'
+  ]);
   private _ABIR(cpu: Nes6502, reg: number) {
     cpu.microCodeStack.push(() => {
       cpu.pc++;
@@ -128,7 +138,8 @@ export class Nes6502AddressingModes {
       cpu.bus.read(cpu.pc);
     });
     const op = cpu.fetch?.name || '';
-    if (['STA', 'STX', 'STY', 'SHA', 'SHX', 'SHY'].includes(op)) {
+    const ops = Nes6502AddressingModes.instance._ABIRspecialOps;
+    if (ops.has(op)) {
       cpu.microCodeStack.push(() => {
         const lo = cpu._t + reg;
         const hi = cpu.bus.data << 8;
@@ -192,22 +203,22 @@ export class Nes6502AddressingModes {
     });
   }
   ABXR(cpu: Nes6502) {
-    this._ABIR(cpu, cpu.x);
+    Nes6502AddressingModes.instance._ABIR(cpu, cpu.x);
   }
   ABYR(cpu: Nes6502) {
-    this._ABIR(cpu, cpu.y);
+    Nes6502AddressingModes.instance._ABIR(cpu, cpu.y);
   }
   ABXW(cpu: Nes6502) {
-    this._ABIW(cpu, cpu.x);
+    Nes6502AddressingModes.instance._ABIW(cpu, cpu.x);
   }
   ABYW(cpu: Nes6502) {
-    this._ABIW(cpu, cpu.y);
+    Nes6502AddressingModes.instance._ABIW(cpu, cpu.y);
   }
   ABXRW(cpu: Nes6502) {
-    this._ABIRW(cpu, cpu.x);
+    Nes6502AddressingModes.instance._ABIRW(cpu, cpu.x);
   }
   ABYRW(cpu: Nes6502) {
-    this._ABIRW(cpu, cpu.y);
+    Nes6502AddressingModes.instance._ABIRW(cpu, cpu.y);
   }
   IZX(cpu: Nes6502) {
     cpu.microCodeStack.push(() => {
@@ -230,7 +241,7 @@ export class Nes6502AddressingModes {
     });
   }
   IZXRW(cpu: Nes6502) {
-    this.IZX(cpu);
+    Nes6502AddressingModes.instance.IZX(cpu);
     cpu.microCodeStack.push(() => {
       cpu.bus.write(cpu.bus.addr, cpu.bus.data);
     });

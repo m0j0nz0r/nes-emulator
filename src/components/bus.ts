@@ -9,6 +9,10 @@ export class Bus {
     this._data = 0;
   }
   private _addr: number;
+  private _isHandled: boolean = true;
+  get isHandled() {
+    return this._isHandled;
+  }
 
   set addr(value: number) {
     this._addr = value & 0xffff;
@@ -29,10 +33,15 @@ export class Bus {
   read(addr: number) {
     this.addr = addr;
     this.rwFlag = ReadFlagState.read;
+    this._isHandled = false;
   }
   write(addr: number, data: number) {
     this.addr = addr;
     this.data = data;
     this.rwFlag = ReadFlagState.write;
+    this._isHandled = false;
+  }
+  handle() {
+    this._isHandled = true;
   }
 }

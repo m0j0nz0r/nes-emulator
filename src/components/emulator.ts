@@ -15,7 +15,7 @@ export class Emulator extends EventHandler {
     this._ram = new RAM(this.bus);
     this.cpu = new Nes6502(this.bus, logger);
     this._cartridge = new Cartridge(this.bus, this._graphicBus);
-    this._ppu = new PPU(this.bus, this._graphicBus, paletteData);
+    this.ppu = new PPU(this.bus, this._graphicBus, paletteData, logger);
     this._emulation = new NanoTimer();
     this._setupEventListeners();
   }
@@ -23,7 +23,7 @@ export class Emulator extends EventHandler {
   private _graphicBus: Bus;
   private _ram: RAM;
   public cpu: Nes6502;
-  private _ppu: PPU;
+  public ppu: PPU;
   private _cartridge: Cartridge;
   private _emulation: NanoTimer;
 
@@ -33,7 +33,7 @@ export class Emulator extends EventHandler {
   public cpuCycle: number = this.cpuClockDivisor;
   public ppuCycle: number = this.ppuClockDivisor;
   public get screen(): Uint8ClampedArray {
-    return this._ppu.screen;
+    return this.ppu.screen;
   }
 
   public start() {
@@ -67,7 +67,12 @@ export class Emulator extends EventHandler {
       this.ppuCycle--;
       if (!this.ppuCycle) {
         this.ppuCycle = this.ppuClockDivisor;
-        this._ppu.clock();
+        this.ppu.clock();
+        if (this.ppu.nmi) {
+          this.cpu.nmi();
+          this.ppu.nmi = false;
+          console.log('NMI! Emulator');
+        }
       }
     } catch (e) {
       this.cpu.microCodeStack.push(() => {
@@ -84,8 +89,11 @@ export class Emulator extends EventHandler {
     this.cpu.on('fetch', event => {
       this.broadcast('cpu:fetch', event);
     });
-    this._ppu.on('frame', event => {
+    this.ppu.on('frame', event => {
       this.broadcast('ppu:frame', event);
+    });
+    this.ppu.on('operation', event => {
+      this.broadcast('ppu:operation', event);
     });
   }
 }
