@@ -1624,7 +1624,9 @@ export class Nes6502 extends EventHandler {
     this.microCodeStack.push(() => {
       this.pc |= this.bus.data << 8;
     });
-    throw new Error(`Break! PC: ${this.pc.toString(16)} Status: ${this.status.toString(16)}`);
+    throw new Error(
+      `Break! PC: ${this.pc.toString(16)} Status: ${this.status.toString(16)}`
+    );
   }
   private _CPA(reg: number) {
     // generic compare

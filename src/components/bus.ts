@@ -9,7 +9,7 @@ export class Bus {
     this._data = 0;
   }
   private _addr: number;
-  private _isHandled: boolean = true;
+  private _isHandled = true;
   get isHandled() {
     return this._isHandled;
   }

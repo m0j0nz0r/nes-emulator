@@ -1,7 +1,6 @@
 import {Nes6502} from './nes6502';
 
 export class Nes6502AddressingModes {
-
   public static instance = new Nes6502AddressingModes();
 
   constructor() {
@@ -116,17 +115,13 @@ export class Nes6502AddressingModes {
     });
     cpu.microCodeStack.push(() => {
       cpu._t = cpu.bus.data;
-      cpu.bus.read(
-        (cpu.bus.addr & 0xff00) | ((cpu.bus.addr + 1) & 0xff)
-      );
+      cpu.bus.read((cpu.bus.addr & 0xff00) | ((cpu.bus.addr + 1) & 0xff));
     });
     cpu.microCodeStack.push(() => {
       cpu.absRead();
     });
   }
-  private _ABIRspecialOps = new Set([
-    'STA', 'STX', 'STY', 'SHA', 'SHX', 'SHY'
-  ]);
+  private _ABIRspecialOps = new Set(['STA', 'STX', 'STY', 'SHA', 'SHX', 'SHY']);
   private _ABIR(cpu: Nes6502, reg: number) {
     cpu.microCodeStack.push(() => {
       cpu.pc++;
@@ -225,9 +220,7 @@ export class Nes6502AddressingModes {
       cpu.pc++;
       cpu.bus.read(cpu.pc);
     });
-    cpu.microCodeStack.push(() =>
-      cpu.bus.read(cpu.bus.data & 0xff)
-    );
+    cpu.microCodeStack.push(() => cpu.bus.read(cpu.bus.data & 0xff));
     cpu.microCodeStack.push(() => {
       cpu.bus.read((cpu.bus.addr + cpu.x) & 0xff);
       cpu.pc++;

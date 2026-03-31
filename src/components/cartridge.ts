@@ -61,10 +61,8 @@ export class Cartridge {
     }
 
     // load misc rom
-    let miscRomSize = rom.byteLength - offset;
     if (offset !== rom.byteLength) {
       const misc = rom.subarray(offset);
-      miscRomSize = misc.byteLength;
       this._miscRom = new RAM(
         this._mainBus,
         misc,

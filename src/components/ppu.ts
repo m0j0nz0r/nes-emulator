@@ -1,9 +1,9 @@
-import { Bus, ReadFlagState } from './bus';
-import { EventHandler, Logger } from './eventHandler';
-import { RAM } from './RAM';
+import {Bus, ReadFlagState} from './bus';
+import {EventHandler, Logger} from './eventHandler';
+import {RAM} from './RAM';
 
 const horizontalPositionCopyMask = 0b1111011_11100000;
-const mainAddrRange = { minAddr: 0x2000, maxAddr: 0x3fff };
+const mainAddrRange = {minAddr: 0x2000, maxAddr: 0x3fff};
 
 const maxPixel = 341;
 const maxScanline = 262;
@@ -103,7 +103,7 @@ export class PPUSTATUSFlags {
   }
   set verticalBlank(value: number) {
     if (value) {
-      this._byte |= (0x1 << 7);
+      this._byte |= 0x1 << 7;
     } else {
       this._byte &= ~(0x1 << 7);
     }
@@ -134,11 +134,11 @@ export class PPU extends EventHandler {
         minAddr: 0x2000,
         maxAddr: 0x3fff,
       },
-      0x1fff,
+      0x1fff
     );
     this._palette = paletteData;
   }
-  public nmi: boolean = false;
+  public nmi = false;
   public frameCounter = 0;
   public VRAM: RAM;
   public get screen(): Uint8ClampedArray {
@@ -200,15 +200,24 @@ export class PPU extends EventHandler {
       return;
     }
     this._ioBus.handle();
-    const ppu = this;
-    function logInstruction(register: string, addr = ppu._ioBus.addr, data = ppu._ioBus.data, rwFlag = ppu._ioBus.rwFlag) {
+    function logInstruction(
+      ppu: PPU,
+      register: string,
+      addr = ppu._ioBus.addr,
+      data = ppu._ioBus.data,
+      rwFlag = ppu._ioBus.rwFlag
+    ) {
       const operation = rwFlag === ReadFlagState.read ? 'Read' : 'Write';
-      ppu.logger.log(`${operation} ${register} ${addr.toString(16).padStart(4, '0')}: ${data.toString(2).padStart(8, '0')} cycle: ${ppu.cycle} scanline: ${ppu.scanLine}`);
-      ppu.broadcast('operation', { register, addr, data, rwFlag });
+      ppu.logger.log(
+        `${operation} ${register} ${addr.toString(16).padStart(4, '0')}: ${data
+          .toString(2)
+          .padStart(8, '0')} cycle: ${ppu.cycle} scanline: ${ppu.scanLine}`
+      );
+      ppu.broadcast('operation', {register, addr, data, rwFlag});
     }
 
     // We have 8 instructions mirrored over the 8kb addressable range.
-    
+
     const addr =
       this._ioBus.addr !== 0x4014
         ? (this._ioBus.addr & 0x7) | 0x2000
@@ -217,7 +226,7 @@ export class PPU extends EventHandler {
     const rwFlag = this._ioBus.rwFlag;
     switch (addr) {
       case PPURegisters.PPUCTRL:
-        logInstruction('PPUCTRL');
+        logInstruction(this, 'PPUCTRL');
         if (rwFlag === ReadFlagState.write) {
           this._controlFlags = new PPUCTRLFlags(data);
           this._T = (this._T & 0b111_0011_1111_1111) | ((data & 0x3) << 10);
@@ -226,7 +235,7 @@ export class PPU extends EventHandler {
         }
         break;
       case PPURegisters.PPUMASK:
-        logInstruction('PPUMASK');
+        logInstruction(this, 'PPUMASK');
         if (rwFlag === ReadFlagState.write) {
           this._maskFlags = new PPUMASKFlags(data);
         } else {
@@ -239,12 +248,12 @@ export class PPU extends EventHandler {
         } else {
           this._W = 0; // reading PPUSTATUS resets write toggle
           this._ioBus.data = this.statusFlags.byte | (this._ioBus.data & 0x1f); // lower 5 bits are open bus
-          logInstruction('PPUSTATUS');
+          logInstruction(this, 'PPUSTATUS');
           this.statusFlags.verticalBlank = 0; // reading PPUSTATUS clears vblank
         }
         break;
       case PPURegisters.OAMADDR:
-        logInstruction('OAMADDR');
+        logInstruction(this, 'OAMADDR');
         if (rwFlag === ReadFlagState.write) {
           this._OAMADDR = data & 0xff;
         } else {
@@ -252,7 +261,7 @@ export class PPU extends EventHandler {
         }
         break;
       case PPURegisters.OAMDATA:
-        logInstruction('OAMDATA');
+        logInstruction(this, 'OAMDATA');
         if (rwFlag === ReadFlagState.write) {
           if (this.isRendering()) {
             // during rendering, writes to OAMDATA are glitched, and the OAMADDR does not increment
@@ -267,7 +276,7 @@ export class PPU extends EventHandler {
         }
         break;
       case PPURegisters.PPUSCROLL:
-        logInstruction('PPUSCROLL');
+        logInstruction(this, 'PPUSCROLL');
         if (rwFlag === ReadFlagState.write) {
           if (this._W === 0) {
             this._T =
@@ -291,7 +300,7 @@ export class PPU extends EventHandler {
         }
         break;
       case PPURegisters.PPUADDR:
-        logInstruction('PPUADDR');
+        logInstruction(this, 'PPUADDR');
         if (rwFlag === ReadFlagState.write) {
           if (this._W === 0) {
             /**
@@ -320,7 +329,7 @@ export class PPU extends EventHandler {
         }
         break;
       case PPURegisters.PPUDATA:
-        logInstruction('PPUDATA');
+        logInstruction(this, 'PPUDATA');
         if (this.isRendering()) {
           // TODO weird glitchy behavior during rendering
         } else {
@@ -332,7 +341,7 @@ export class PPU extends EventHandler {
         }
         break;
       case PPURegisters.OAMDMA:
-        logInstruction('OAMDMA');
+        logInstruction(this, 'OAMDMA');
         if (rwFlag === ReadFlagState.write) {
           // TODO
         } else {
@@ -409,11 +418,7 @@ export class PPU extends EventHandler {
         // fetch next two tiles for next scanline
         break;
     }
-    if (
-      this.isPreRenderingScanline &&
-      this.cycle >= 280 &&
-      this.cycle <= 304
-    ) {
+    if (this.isPreRenderingScanline && this.cycle >= 280 && this.cycle <= 304) {
       // copy vertical position from t to v
       const mask = 0b0000100_00011111;
       this._V = (this._V & mask) | (this._T & ~mask);
@@ -494,7 +499,6 @@ export class PPU extends EventHandler {
     }
     this._doBgFetch();
 
-
     if (!isVisibleCycle) {
       return;
     }
@@ -531,9 +535,9 @@ export class PPU extends EventHandler {
         // Fetch attribute table entry
         this._graphicsBus.read(
           0x23c0 |
-          (this._V & 0x0c00) |
-          ((this._V >> 4) & 0x0038) |
-          ((this._V >> 2) & 0x0007)
+            (this._V & 0x0c00) |
+            ((this._V >> 4) & 0x0038) |
+            ((this._V >> 2) & 0x0007)
         );
         break;
       case 3:
@@ -562,7 +566,8 @@ export class PPU extends EventHandler {
     const patternBitHi = (this._patternHi >> this._X) & 0x1;
     const patternBitLo = (this._patternLo >> this._X) & 0x1;
     const patternIndex = (patternBitHi << 1) | patternBitLo;
-    const bgPaletteIndex = ((this._currentAttributeBits << 2) | patternIndex) & 0x0f;
+    const bgPaletteIndex =
+      ((this._currentAttributeBits << 2) | patternIndex) & 0x0f;
 
     this._patternLo >>= 1;
     this._patternHi >>= 1;
