@@ -48,7 +48,6 @@ export class Emulator extends EventHandler {
   }
   public stop() {
     this._emulation.clearInterval();
-    this.broadcast('stop');
   }
   public clock() {
     this.cycle++;
@@ -84,10 +83,18 @@ export class Emulator extends EventHandler {
   public loadCartridge(rom: Buffer) {
     this._cartridge?.load(rom);
   }
-
+  public reset() {
+    this.stop();
+    this.cpu.reset();
+    this.cycle = 0;
+  }
   private _setupEventListeners() {
     this.cpu.on('fetch', event => {
       this.broadcast('cpu:fetch', event);
+    });
+    this.cpu.on('stop', () => {
+      this.stop();
+      this.broadcast('cpu:stop');
     });
     this.ppu.on('frame', event => {
       this.broadcast('ppu:frame', event);
