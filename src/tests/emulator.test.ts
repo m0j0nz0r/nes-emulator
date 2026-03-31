@@ -1,16 +1,21 @@
 import {Emulator} from '../components/emulator';
-import {defaultPaletteData} from '../palettes/defaultPalette';
+import {cpuTest} from './cpuTest';
 
 describe('Emulator', () => {
   let emulator: Emulator;
 
   beforeEach(() => {
-    emulator = new Emulator(defaultPaletteData);
+    emulator = new Emulator();
   });
 
   test('should initialize correctly', () => {
     expect(emulator).toBeDefined();
   });
 
-  // Add more tests here
+  describe('golden log test', () => {
+    test('should match the golden log', async () => {
+      const result = await cpuTest();
+      expect(result).toBe(true);
+    });
+  });
 });

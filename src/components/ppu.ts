@@ -146,8 +146,8 @@ export class PPU extends EventHandler {
   }
   private _screen = new Uint8ClampedArray(256 * 240 * 4); // RGBA for each pixel
   private _palette: Buffer;
-  private _scanline = -1;
-  private _cycle = 0;
+  public scanLine = -1;
+  public cycle = 0;
   private _isEvenFrame = true;
   private _controlFlags: PPUCTRLFlags;
   private _maskFlags: PPUMASKFlags;
@@ -203,7 +203,7 @@ export class PPU extends EventHandler {
     const ppu = this;
     function logInstruction(register: string, addr = ppu._ioBus.addr, data = ppu._ioBus.data, rwFlag = ppu._ioBus.rwFlag) {
       const operation = rwFlag === ReadFlagState.read ? 'Read' : 'Write';
-      ppu.logger.log(`${operation} ${register} ${addr.toString(16).padStart(4, '0')}: ${data.toString(2).padStart(8, '0')} cycle: ${ppu._cycle} scanline: ${ppu._scanline}`);
+      ppu.logger.log(`${operation} ${register} ${addr.toString(16).padStart(4, '0')}: ${data.toString(2).padStart(8, '0')} cycle: ${ppu.cycle} scanline: ${ppu.scanLine}`);
       ppu.broadcast('operation', { register, addr, data, rwFlag });
     }
 
@@ -355,10 +355,10 @@ export class PPU extends EventHandler {
   }
 
   public get isPreRenderingScanline(): boolean {
-    return this._scanline === 261 || this._scanline === -1;
+    return this.scanLine === 261 || this.scanLine === -1;
   }
   public get isVisibleScanline(): boolean {
-    return this._scanline >= 0 && this._scanline <= 239;
+    return this.scanLine >= 0 && this.scanLine <= 239;
   }
 
   public clock() {
@@ -369,7 +369,7 @@ export class PPU extends EventHandler {
     const isRenderingEnabled =
       this._maskFlags.showBg || this._maskFlags.showSprites;
     if (isRenderingEnabled) {
-      if (this._cycle === 256) {
+      if (this.cycle === 256) {
         // increment vertical position
         this._YIncrement();
       }
@@ -382,18 +382,18 @@ export class PPU extends EventHandler {
   }
 
   private _updateVBlankFlag() {
-    if (this._cycle !== 1) {
+    if (this.cycle !== 1) {
       return;
     }
-    if (this._scanline === 241) {
+    if (this.scanLine === 241) {
       this.statusFlags.verticalBlank = 1;
       this.nmi = this._controlFlags.nmiEnabled ? true : false;
-    } else if (this._scanline === 261) {
+    } else if (this.scanLine === 261) {
       this.statusFlags.verticalBlank = 0;
     }
   }
   private _updateV() {
-    switch (this._cycle) {
+    switch (this.cycle) {
       case 256:
         // increment vertical position
         this._YIncrement();
@@ -411,8 +411,8 @@ export class PPU extends EventHandler {
     }
     if (
       this.isPreRenderingScanline &&
-      this._cycle >= 280 &&
-      this._cycle <= 304
+      this.cycle >= 280 &&
+      this.cycle <= 304
     ) {
       // copy vertical position from t to v
       const mask = 0b0000100_00011111;
@@ -420,10 +420,10 @@ export class PPU extends EventHandler {
     }
   }
   private _coarseXIncrement() {
-    if (this._cycle & 8) {
+    if (this.cycle & 8) {
       return;
     }
-    if (this._cycle > 256 && this._cycle < 328) {
+    if (this.cycle > 256 && this.cycle < 328) {
       return;
     }
     if ((this._V & 0x001f) === 31) {
@@ -452,21 +452,21 @@ export class PPU extends EventHandler {
   }
 
   private _oddFrameCycleSkip() {
-    if (!this._isEvenFrame && this._scanline === 0 && this._cycle === 0) {
+    if (!this._isEvenFrame && this.scanLine === 0 && this.cycle === 0) {
       // skip cycle on odd frames
-      this._cycle = 1;
+      this.cycle = 1;
     }
   }
 
   private _updateCycleCounters() {
-    this._cycle += 1;
-    if (this._cycle > maxPixel) {
-      this._cycle = 0;
+    this.cycle += 1;
+    if (this.cycle > maxPixel) {
+      this.cycle = 0;
     }
-    if (this._cycle === 0) {
-      this._scanline += 1;
-      if (this._scanline > maxScanline) {
-        this._scanline = 0;
+    if (this.cycle === 0) {
+      this.scanLine += 1;
+      if (this.scanLine > maxScanline) {
+        this.scanLine = 0;
         this._isEvenFrame = !this._isEvenFrame;
         this.broadcast('frame', this._screen);
         this.frameCounter++;
@@ -487,8 +487,8 @@ export class PPU extends EventHandler {
      * Fetch the high-order byte of this sliver from an address 8 byFtes higher.
      * Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
      */
-    const isVisibleCycle = this._cycle >= 1 && this._cycle <= 256;
-    const isPreRenderCycle = this._cycle >= 321 && this._cycle <= 336;
+    const isVisibleCycle = this.cycle >= 1 && this.cycle <= 256;
+    const isPreRenderCycle = this.cycle >= 321 && this.cycle <= 336;
     if (!isVisibleCycle && !isPreRenderCycle) {
       return;
     }
@@ -518,7 +518,7 @@ export class PPU extends EventHandler {
       this._controlFlags.bgTileSelect |
       (this._nametableByte << 4) |
       ((this._V >> 12) & 0x7);
-    const subCycle = (this._cycle - 1) % 8;
+    const subCycle = (this.cycle - 1) % 8;
     switch (subCycle) {
       case 0:
         // Fetch nametable entry
@@ -568,7 +568,7 @@ export class PPU extends EventHandler {
     this._patternHi >>= 1;
 
     if (this.isVisibleScanline) {
-      const pixelIndex = (this._scanline * 256 + this._cycle - 1) * 4;
+      const pixelIndex = (this.scanLine * 256 + this.cycle - 1) * 4;
       const colorOffset = bgPaletteIndex * 3;
       // this._screen[pixelIndex] = (this._cycle + this.frameCounter) & 0xff; // R
       // this._screen[pixelIndex + 1] = (this._scanline + this.frameCounter) & 0xff; // G

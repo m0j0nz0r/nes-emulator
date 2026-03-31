@@ -1385,6 +1385,11 @@ export class Nes6502 extends EventHandler {
         addressingMode: this.addressingModes.ABXRW,
       }, // FF
     ];
+
+    // reset the CPU to a known state
+    this.NOP();
+    this.NOP();
+    this.NOP();
     this.reset();
   }
   public cycle = 0;
@@ -2133,7 +2138,7 @@ export class Nes6502 extends EventHandler {
       this.x = 0;
       this.y = 0;
       this.stackPointer = 0xfd;
-      this.status = 0x0 | Flags.U;
+      this.status = 0x24 | Flags.U | Flags.I;
 
       this.bus.read(0xfffc);
     });
@@ -2213,12 +2218,12 @@ export class Nes6502 extends EventHandler {
 
       // after every op is done, fetch next instruction.
       if (!this.microCodeStack.length) {
-        this.broadcast('fetch', this.fetch?.name || '');
         this.bus.read(this.pc);
       }
     } else {
       this.fetch = this.opCodeLookup[this.bus.data];
       this.count++;
+      this.broadcast('fetch', this.fetch.name);
       this.fetch.addressingMode(this);
       this.fetch.operation.call(this);
 
