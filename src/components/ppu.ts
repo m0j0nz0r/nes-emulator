@@ -1,4 +1,4 @@
-import {Bus, ReadFlagState} from './bus';
+import {Bus, BusHandler, ReadFlagState} from './bus';
 import {EventHandler, Logger} from './eventHandler';
 import {RAM} from './RAM';
 
@@ -18,6 +18,22 @@ enum PPURegisters {
   PPUADDR = 0x2006,
   PPUDATA = 0x2007,
   OAMDMA = 0x4014,
+}
+
+function logInstruction(
+  ppu: PPU,
+  register: string,
+  addr: number,
+  data: number,
+  rwFlag: ReadFlagState
+) {
+  const operation = rwFlag === ReadFlagState.read ? 'Read' : 'Write';
+  ppu.logger.log(
+    `${operation} ${register} ${addr.toString(16).padStart(4, '0')}: ${data
+      .toString(2)
+      .padStart(8, '0')} cycle: ${ppu.cycle} scanline: ${ppu.scanLine}`
+  );
+  ppu.broadcast('operation', {register, addr, data, rwFlag});
 }
 
 class PPUCTRLFlags {
@@ -113,7 +129,12 @@ export class PPUSTATUSFlags {
     return this._byte;
   }
 }
-export class PPU extends EventHandler {
+
+function getCleanAddr(addr: number): number {
+  const cleanAddr = addr !== 0x4014 ? (addr & 0x7) | 0x2000 : addr;
+  return cleanAddr;
+}
+export class PPU extends EventHandler implements BusHandler {
   constructor(
     ioBus: Bus,
     graphicsBus: Bus,
@@ -136,6 +157,16 @@ export class PPU extends EventHandler {
       },
       0x1fff
     );
+    this._OAM = new RAM(
+      this._graphicsBus,
+      new Array(256).fill(0),
+      {
+        minAddr: 0x0000,
+        maxAddr: 0x00ff,
+      },
+      0x00ff
+    );
+
     this._palette = paletteData;
   }
   public nmi = false;
@@ -152,14 +183,8 @@ export class PPU extends EventHandler {
   private _controlFlags: PPUCTRLFlags;
   private _maskFlags: PPUMASKFlags;
   public statusFlags: PPUSTATUSFlags;
-  private _OAM = new Array(256).fill(0); // Object Attribute Memory (OAM)
+  private _OAM: RAM; // Object Attribute Memory (OAM)
   private _OAMADDR = 0; // OAM address register
-  private get _OAMDATA(): number {
-    return this._OAM.at(this._OAMADDR) ?? 0;
-  }
-  private set _OAMDATA(value: number) {
-    this._OAM[this._OAMADDR] = value & 0xff;
-  }
 
   // Internal PPU registers
   private _v = 0; // current VRAM address (15 bits)
@@ -188,169 +213,141 @@ export class PPU extends EventHandler {
 
   private _ioBus: Bus;
   private _graphicsBus: Bus;
-  private _handleMainBus() {
-    if (this._ioBus.isHandled) {
-      return;
-    }
-    // make sure we are on our addressable space.
-    if (
-      this._ioBus.addr < mainAddrRange.minAddr ||
-      this._ioBus.addr > mainAddrRange.maxAddr
-    ) {
-      return;
-    }
-    this._ioBus.handle();
-    function logInstruction(
-      ppu: PPU,
-      register: string,
-      addr = ppu._ioBus.addr,
-      data = ppu._ioBus.data,
-      rwFlag = ppu._ioBus.rwFlag
-    ) {
-      const operation = rwFlag === ReadFlagState.read ? 'Read' : 'Write';
-      ppu.logger.log(
-        `${operation} ${register} ${addr.toString(16).padStart(4, '0')}: ${data
-          .toString(2)
-          .padStart(8, '0')} cycle: ${ppu.cycle} scanline: ${ppu.scanLine}`
-      );
-      ppu.broadcast('operation', {register, addr, data, rwFlag});
-    }
 
-    // We have 8 instructions mirrored over the 8kb addressable range.
+  public addressRange = mainAddrRange;
+  public write(addr: number, data: number): void {
+    const rwFlag = ReadFlagState.write;
+    let instruction = '';
+    addr = getCleanAddr(addr);
 
-    const addr =
-      this._ioBus.addr !== 0x4014
-        ? (this._ioBus.addr & 0x7) | 0x2000
-        : this._ioBus.addr;
-    const data = this._ioBus.data & 0xff;
-    const rwFlag = this._ioBus.rwFlag;
     switch (addr) {
       case PPURegisters.PPUCTRL:
-        logInstruction(this, 'PPUCTRL');
-        if (rwFlag === ReadFlagState.write) {
-          this._controlFlags = new PPUCTRLFlags(data);
-          this._T = (this._T & 0b111_0011_1111_1111) | ((data & 0x3) << 10);
-        } else {
-          // PPUCTRL is write-only
-        }
+        this._controlFlags = new PPUCTRLFlags(data);
+        this._T = (this._T & 0b111_0011_1111_1111) | ((data & 0x3) << 10);
+        instruction = 'PPUCTRL';
         break;
       case PPURegisters.PPUMASK:
-        logInstruction(this, 'PPUMASK');
-        if (rwFlag === ReadFlagState.write) {
-          this._maskFlags = new PPUMASKFlags(data);
-        } else {
-          // PPUMASK is write-only
-        }
-        break;
-      case PPURegisters.PPUSTATUS:
-        if (rwFlag === ReadFlagState.write) {
-          // PPUSTATUS is read-only
-        } else {
-          this._W = 0; // reading PPUSTATUS resets write toggle
-          this._ioBus.data = this.statusFlags.byte | (this._ioBus.data & 0x1f); // lower 5 bits are open bus
-          logInstruction(this, 'PPUSTATUS');
-          this.statusFlags.verticalBlank = 0; // reading PPUSTATUS clears vblank
-        }
+        this._maskFlags = new PPUMASKFlags(data);
+        instruction = 'PPUMASK';
         break;
       case PPURegisters.OAMADDR:
-        logInstruction(this, 'OAMADDR');
-        if (rwFlag === ReadFlagState.write) {
-          this._OAMADDR = data & 0xff;
-        } else {
-          this._ioBus.data = this._OAMADDR;
-        }
+        this._OAMADDR = data;
+        instruction = 'OAMADDR';
         break;
       case PPURegisters.OAMDATA:
-        logInstruction(this, 'OAMDATA');
-        if (rwFlag === ReadFlagState.write) {
-          if (this.isRendering()) {
-            // during rendering, writes to OAMDATA are glitched, and the OAMADDR does not increment
-            // we will disable writes during rendering for simplicity
-          } else {
-            this._OAMDATA = data & 0xff;
-            this._OAMADDR += 1;
-            this._OAMADDR &= 0xff;
-          }
+        if (this.isRendering()) {
+          // during rendering, writes to OAMDATA are glitched, and the OAMADDR does not increment
+          // we will disable writes during rendering for simplicity
         } else {
-          this._ioBus.data = this._OAMDATA;
+          this._OAM.write(this._OAMADDR, data);
+          this._OAMADDR++;
+          this._OAMADDR &= 0xff;
         }
+        instruction = 'OAMDATA';
         break;
       case PPURegisters.PPUSCROLL:
-        logInstruction(this, 'PPUSCROLL');
-        if (rwFlag === ReadFlagState.write) {
-          if (this._W === 0) {
-            this._T =
-              (this._T & 0b1111_1111_1110_0000) | ((data & 0b11111000) >> 3);
-            this._X = data & 0x07;
-            this._W = 1;
-          } else {
-            /**
-             * $2005 (PPUSCROLL) second write (w is 1)
-             * t: FGH..AB CDE..... <- d: ABCDEFGH
-             */
-            // ABCDE
-            this._T =
-              (this._T & 0b111_1100_0001_1111) | ((data & 0b1111_1000) << 2);
-            // FGH
-            this._T = (this._T & 0b000_1111_1111_1111) | ((data & 0b111) << 12);
-            this._W = 0;
-          }
+        if (this._W === 0) {
+          this._T =
+            (this._T & 0b1111_1111_1110_0000) | ((data & 0b11111000) >> 3);
+          this._X = data & 0x07;
+          this._W = 1;
         } else {
-          // PPUSCROLL is write-only
+          /**
+           * $2005 (PPUSCROLL) second write (w is 1)
+           * t: FGH..AB CDE..... <- d: ABCDEFGH
+           */
+          // ABCDE
+          this._T =
+            (this._T & 0b111_1100_0001_1111) | ((data & 0b1111_1000) << 2);
+          // FGH
+          this._T = (this._T & 0b000_1111_1111_1111) | ((data & 0b111) << 12);
+          this._W = 0;
         }
+        instruction = 'PPUSCROLL';
         break;
       case PPURegisters.PPUADDR:
-        logInstruction(this, 'PPUADDR');
-        if (rwFlag === ReadFlagState.write) {
-          if (this._W === 0) {
-            /**
-             * $2006 (PPUADDR) first write (w is 0)
-             * t: .CDEFGH ........ <- d: ..CDEFGH
-             *       <unused>     <- d: AB......
-             * t: Z...... ........ <- 0 (bit Z is cleared)
-             * w:                  <- 1
-             */
-            this._T = (this._T & 0b0111111_11111111) | ((data & 0b111111) << 8);
-            this._W = 1;
-          } else {
-            /**
-             * $2006 (PPUADDR) second write (w is 1)
-             * t: ....... ABCDEFGH <- d: ABCDEFGH
-             * w:                  <- 0
-             *   (wait 1 to 1.5 dots after the write completes)
-             * v: <...all bits...> <- t: <...all bits...>
-             */
-            this._T = (this._T & 0b1111111_00000000) | (data & 0xff);
-            this._V = this._T;
-            this._W = 0;
-          }
+        if (this._W === 0) {
+          /**
+           * $2006 (PPUADDR) first write (w is 0)
+           * t: .CDEFGH ........ <- d: ..CDEFGH
+           *       <unused>     <- d: AB......
+           * t: Z...... ........ <- 0 (bit Z is cleared)
+           * w:                  <- 1
+           */
+          this._T = (this._T & 0b0111111_11111111) | ((data & 0b111111) << 8);
+          this._W = 1;
         } else {
-          // PPUADDR is write-only
+          /**
+           * $2006 (PPUADDR) second write (w is 1)
+           * t: ....... ABCDEFGH <- d: ABCDEFGH
+           * w:                  <- 0
+           *   (wait 1 to 1.5 dots after the write completes)
+           * v: <...all bits...> <- t: <...all bits...>
+           */
+          this._T = (this._T & 0b1111111_00000000) | (data & 0xff);
+          this._V = this._T;
+          this._W = 0;
         }
+        instruction = 'PPUADDR';
         break;
       case PPURegisters.PPUDATA:
-        logInstruction(this, 'PPUDATA');
         if (this.isRendering()) {
           // TODO weird glitchy behavior during rendering
         } else {
-          if (rwFlag === ReadFlagState.write) {
-            this._graphicsBus.write(this._V, data & 0xff);
-          }
+          this._graphicsBus.write(this._V, data & 0xff);
           this._V += this._controlFlags.incrementMode;
           this._V &= 0x3fff;
         }
+        instruction = 'PPUDATA';
         break;
       case PPURegisters.OAMDMA:
-        logInstruction(this, 'OAMDMA');
-        if (rwFlag === ReadFlagState.write) {
-          // TODO
-        } else {
-          // OAMDMA is write-only
+        instruction = 'OAMDMA';
+        const baseAddr = (data & 0xff) << 8;
+        for (let i = 0; i < 256; i++) {
+          this._OAM.write(this._OAMADDR + i, this._ioBus.read(baseAddr + i));
         }
         break;
-      default:
+    }
+    logInstruction(this, instruction, addr, data, rwFlag);
+  }
+
+  public read(addr: number, data?: number): number {
+    const rwFlag = ReadFlagState.read;
+    let instruction = '';
+    let result = 0;
+    addr = getCleanAddr(addr);
+    data = data ?? 0;
+
+    switch (addr) {
+      case PPURegisters.PPUSTATUS:
+        this._W = 0; // reading PPUSTATUS resets write toggle
+        result = this.statusFlags.byte | (data & 0x1f); // lower 5 bits are open bus
+        this.statusFlags.verticalBlank = 0; // reading PPUSTATUS clears vblank
+        instruction = 'PPUSTATUS';
+        break;
+      case PPURegisters.OAMADDR:
+        result = this._OAMADDR;
+        instruction = 'OAMADDR';
+        break;
+      case PPURegisters.OAMDATA:
+        result = this._OAM.read(this._OAMADDR);
+        instruction = 'OAMDATA';
+        break;
+      case PPURegisters.PPUDATA:
+        if (this.isRendering()) {
+          // during rendering, reads from PPUDATA are glitched,
+          // and return open bus or the last byte read from the graphics bus
+          result = data & 0xff;
+        } else {
+          this._V += this._controlFlags.incrementMode;
+          this._V &= 0x3fff;
+          result = this._graphicsBus.read(this._V);
+        }
+        instruction = 'PPUDATA';
         break;
     }
+    logInstruction(this, instruction, addr, result, rwFlag);
+    return result;
   }
 
   public isRendering(): boolean {
@@ -371,10 +368,8 @@ export class PPU extends EventHandler {
   }
 
   public clock() {
-    this.VRAM.clock();
     this._updateCycleCounters();
     this._updateVBlankFlag();
-    this._handleMainBus();
     const isRenderingEnabled =
       this._maskFlags.showBg || this._maskFlags.showSprites;
     if (isRenderingEnabled) {
@@ -526,14 +521,13 @@ export class PPU extends EventHandler {
     switch (subCycle) {
       case 0:
         // Fetch nametable entry
-        this._graphicsBus.read(0x2000 | (this._V & 0x0fff));
+        this._nametableByte = this._graphicsBus.read(0x2000 | (this._V & 0x0fff));
         break;
       case 1:
-        this._nametableByte = this._graphicsBus.data;
         break;
       case 2:
         // Fetch attribute table entry
-        this._graphicsBus.read(
+        this._attributeByte = this._graphicsBus.read(
           0x23c0 |
             (this._V & 0x0c00) |
             ((this._V >> 4) & 0x0038) |
@@ -541,23 +535,20 @@ export class PPU extends EventHandler {
         );
         break;
       case 3:
-        this._attributeByte = this._graphicsBus.data;
         this._currentAttributeBits = this._getAttributeBits();
         break;
       case 4:
         // Fetch low-order byte of pattern table
-        this._graphicsBus.read(bgPatternTableAddress);
+        this._patternLo = this._graphicsBus.read(bgPatternTableAddress) << 8;
         break;
       case 5:
-        this._patternLo = this._graphicsBus.data << 8;
         // Fetch palette data
         break;
       case 6:
         // Fetch high-order byte of pattern table
-        this._graphicsBus.read(bgPatternTableAddress | 0x0008);
+        this._patternHi = this._graphicsBus.read(bgPatternTableAddress | 0x0008) << 8;
         break;
       case 7:
-        this._patternHi = this._graphicsBus.data << 8;
         break;
     }
   }

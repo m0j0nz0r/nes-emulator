@@ -52,9 +52,6 @@ export class Emulator extends EventHandler {
   public clock() {
     this.cycle++;
     try {
-      this._ram.clock();
-      this._cartridge.clock();
-
       // cpu clock ticks
       this.cpuCycle--;
       if (!this.cpuCycle) {

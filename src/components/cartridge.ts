@@ -9,27 +9,19 @@ export class Cartridge {
   }
   private _mainBus: Bus;
   private _graphicsBus: Bus;
-  private _trainer?: RAM;
-  private _prgRom?: RAM;
-  private _chrRom?: RAM;
-  private _miscRom?: RAM;
-  private _handleGraphicsBus() {}
+  public trainer?: RAM;
+  public prgRom?: RAM;
+  public chrRom?: RAM;
+  public miscRom?: RAM;
 
   private _headers?: Headers;
-  public clock() {
-    this._trainer?.clock();
-    this._prgRom?.clock();
-    this._chrRom?.clock();
-    this._miscRom?.clock();
-    this._handleGraphicsBus();
-  }
   public load(rom: Buffer) {
     let offset = 16;
     this._headers = new Headers(rom);
     const hasTrainer = this._headers.flags6.hasTrainer;
 
     if (hasTrainer) {
-      this._trainer = new RAM(
+      this.trainer = new RAM(
         this._mainBus,
         rom.subarray(offset, offset + 511),
         {minAddr: 0x7000, maxAddr: 0x71ff}
@@ -38,7 +30,7 @@ export class Cartridge {
     }
 
     // load PRG_ROM
-    this._prgRom = new RAM(
+    this.prgRom = new RAM(
       this._mainBus,
       rom.subarray(offset, this._headers.prgRomSize + offset),
       {minAddr: 0x8000, maxAddr: 0xffff},
@@ -52,7 +44,7 @@ export class Cartridge {
       const chrRom = rom.subarray(offset, this._headers.chrRomSize + offset);
       offset += this._headers.chrRomSize;
 
-      this._chrRom = new RAM(
+      this.chrRom = new RAM(
         this._graphicsBus,
         chrRom,
         {minAddr: 0x0000, maxAddr: 0x1fff},
@@ -63,7 +55,7 @@ export class Cartridge {
     // load misc rom
     if (offset !== rom.byteLength) {
       const misc = rom.subarray(offset);
-      this._miscRom = new RAM(
+      this.miscRom = new RAM(
         this._mainBus,
         misc,
         {minAddr: 0x6000, maxAddr: 0x7fff},

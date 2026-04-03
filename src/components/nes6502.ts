@@ -1445,9 +1445,9 @@ export class Nes6502 extends EventHandler {
     // Add with Carry
     this.microCodeStack.push(() => {
       const m = this.a;
-      const n = this.bus.data;
+      const n = this._t;
       const result = m + n + this.getFlag(Flags.C);
-      this.a = result & 0xff;
+      this.a = result;
 
       this.setFlag(Flags.C, result & 0x100);
       // formula taken from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
@@ -1460,10 +1460,11 @@ export class Nes6502 extends EventHandler {
     // Substract with carry
     // substraction works the same as addition with flipped bits on the second argument
     this.microCodeStack.push(() => {
+      const c = this.getFlag(Flags.C);
       const m = this.a;
-      const n = ~this.bus.data;
-      const result = m + n + this.getFlag(Flags.C);
-      this.a = result & 0xff;
+      const n = ~this._t;
+      const result = m + n + c;
+      this.a = result;
 
       this.setFlag(Flags.C, ~result & 0x100);
       // formula taken from http://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
@@ -1475,14 +1476,13 @@ export class Nes6502 extends EventHandler {
   AND() {
     // Bitwise AND with Acc
     this.microCodeStack.push(() => {
-      this.a &= this.bus.data;
+      this.a &= this._t;
 
       this.testNZFlags(this.a);
     });
   }
   ASL() {
     // Arithmetic shift(1) left
-    let result = 0;
     function setFlags(p: Nes6502, result: number) {
       p.setFlag(Flags.N, result & 0x80); // test bit 7
       p.setFlag(Flags.Z, !(result & 0xff));
@@ -1490,15 +1490,15 @@ export class Nes6502 extends EventHandler {
     }
     if (this.fetch?.addressingMode === this.addressingModes.IMP) {
       this.microCodeStack.push(() => {
-        result = this.a << 1;
-        this.a = result & 0xff;
+        const result = this.a << 1;
+        this.a = result;
         setFlags(this, result);
       });
     } else {
       this.microCodeStack.push(() => {
-        result = this.bus.data << 1;
-        this.bus.write(this.bus.addr, result & 0xff);
-        setFlags(this, result);
+        this._t <<= 1;
+        this.bus.write(undefined, this._t);
+        setFlags(this, this._t);
       });
       this.NOP(); // allow the result to be saved before fetching the next instruction.
     }
@@ -1513,10 +1513,10 @@ export class Nes6502 extends EventHandler {
       });
     } else {
       this.microCodeStack.push(() => {
-        const result = this.bus.data >> 1;
-        this.setFlag(Flags.C, this.bus.data & 0x1);
-        this.testNZFlags(result);
-        this.bus.write(this.bus.addr, result);
+        this.setFlag(Flags.C, this._t & 0x1);
+        this._t >>= 1;
+        this.testNZFlags(this._t);
+        this.bus.write(undefined, this._t);
       });
       this.NOP();
     }
@@ -1524,9 +1524,9 @@ export class Nes6502 extends EventHandler {
   BIT() {
     // test bits
     this.microCodeStack.push(() => {
-      this.setFlag(Flags.N, this.bus.data & 0x80); // test bit 7
-      this.setFlag(Flags.Z, !(this.bus.data & this.a));
-      this.setFlag(Flags.V, this.bus.data & 0x40); // test bit 6
+      this.setFlag(Flags.N, this._t & 0x80); // test bit 7
+      this.setFlag(Flags.Z, !(this._t & this.a));
+      this.setFlag(Flags.V, this._t & 0x40); // test bit 6
     });
   }
   private _BRA(shouldBranch: boolean) {
@@ -1535,7 +1535,7 @@ export class Nes6502 extends EventHandler {
       this.pc++;
       if (shouldBranch) {
         const hi = this.pc & 0xff00;
-        const lo = (this.pc & 0xff) + this.bus.data;
+        const lo = (this.pc & 0xff) + this._t;
 
         // +1 cycle if branch crosses page boundary
         if (lo > 0xff && !(lo & 0xff)) {
@@ -1560,7 +1560,7 @@ export class Nes6502 extends EventHandler {
       this.pc++;
       if (this.getFlag(Flags.V) === 0) {
         const hi = this.pc & 0xff00;
-        const lo = (this.pc & 0xff) + this.bus.data;
+        const lo = (this.pc & 0xff) + this._t;
         this.microCodeStack.push(() => (this.pc = hi + lo));
         // BVC always takes 3 cycles if branch is taken.
       }
@@ -1608,7 +1608,7 @@ export class Nes6502 extends EventHandler {
       this.pushStack(this.pc >> 8);
     });
     this.microCodeStack.push(() => {
-      this.pushStack(this.pc & 0xff);
+      this.pushStack(this.pc);
     });
     this.microCodeStack.push(() => {
       this.setFlag(Flags.B, 1);
@@ -1616,21 +1616,21 @@ export class Nes6502 extends EventHandler {
       this.setFlag(Flags.I, 1);
     });
     this.microCodeStack.push(() => {
-      this.bus.read(0xfffe);
+      this.read(0xfffe);
     });
     this.microCodeStack.push(() => {
-      this.pc = this.bus.data;
-      this.bus.read(0xffff);
+      this.pc = this._t;
+      this.read(0xffff);
     });
     this.microCodeStack.push(() => {
-      this.pc |= this.bus.data << 8;
+      this.pc |= this._t << 8;
     });
   }
   private _CPA(reg: number) {
     // generic compare
     this.microCodeStack.push(() => {
       const m = reg;
-      const n = this.bus.data ^ 0xff;
+      const n = this._t ^ 0xff;
       const result = m + n + 1;
       this.setFlag(Flags.C, result & 0x100);
       this.testNZFlags(result);
@@ -1651,23 +1651,25 @@ export class Nes6502 extends EventHandler {
   DEC() {
     // decrement memory
     this.microCodeStack.push(() => {
-      this.bus.write(this.bus.addr, this.bus.data - 1);
-      this.testNZFlags(this.bus.data);
+      this._t--;
+      this.bus.write(undefined, this._t);
+      this.testNZFlags(this._t);
     });
     this.NOP();
   }
   INC() {
     // Increment memory
     this.microCodeStack.push(() => {
-      this.bus.write(this.bus.addr, this.bus.data + 1);
-      this.testNZFlags(this.bus.data);
+      this._t++;
+      this.bus.write(undefined, this._t);
+      this.testNZFlags(this._t);
     });
     this.NOP();
   }
   EOR() {
     // exclusive or
     this.microCodeStack.push(() => {
-      this.a ^= this.bus.data;
+      this.a ^= this._t;
       this.testNZFlags(this.a);
     });
   }
@@ -1724,51 +1726,54 @@ export class Nes6502 extends EventHandler {
     6    PC     R  copy low address byte to PCL, fetch high address
                    byte to PCH
     */
+    let temp = 0;
     this.microCodeStack.push(() => {
       // cycle 2
       this.pc++;
-      this.bus.read(this.pc);
+      this.read(this.pc);
     });
     this.microCodeStack.push(() => {
       // cycle 3
-      this._t = this.bus.data;
+      temp = this._t;
       this.pc++;
-      this.bus.read(0x100 | this.stackPointer);
+      this.read(0x100 | this.stackPointer);
     });
     this.microCodeStack.push(() => {
       this.pushStack(this.pc >> 8);
     });
     this.microCodeStack.push(() => {
       // cycle 4
-      this.pushStack(this.pc & 0xff);
+      this.pushStack(this.pc);
     });
     this.microCodeStack.push(() => {
       // cycle 5
-      this.bus.read(this.pc);
+      this.read(this.pc);
     });
     this.microCodeStack.push(() => {
       // cycle 6
-      this.pc = (this.bus.data << 8) | (this._t & 0xff);
+      this.pc = (this._t << 8) | (temp & 0xff);
+      this.addressingModes.operandString =
+        '$' + this.pc.toString(16).toUpperCase().padStart(4, '0');
     });
   }
   LDA() {
     // Load A
     this.microCodeStack.push(() => {
-      this.a = this.bus.data;
+      this.a = this._t;
       this.testNZFlags(this.a);
     });
   }
   LDX() {
     // Load X
     this.microCodeStack.push(() => {
-      this.x = this.bus.data;
+      this.x = this._t;
       this.testNZFlags(this.x);
     });
   }
   LDY() {
     // Load Y
     this.microCodeStack.push(() => {
-      this.y = this.bus.data;
+      this.y = this._t;
       this.testNZFlags(this.y);
     });
   }
@@ -1779,7 +1784,7 @@ export class Nes6502 extends EventHandler {
   ORA() {
     // Bitwise OR with accumulator
     this.microCodeStack.push(() => {
-      this.a |= this.bus.data;
+      this.a |= this._t;
       this.testNZFlags(this.a);
     });
   }
@@ -1858,11 +1863,12 @@ export class Nes6502 extends EventHandler {
     }
     if (this.fetch?.addressingMode === this.addressingModes.IMP) {
       this.microCodeStack.push(() => {
-        this.a = rotate(this, this.a) & 0xff;
+        this.a = rotate(this, this.a);
       });
     } else {
       this.microCodeStack.push(() => {
-        this.bus.write(this.bus.addr, rotate(this, this.bus.data) & 0xff);
+        this._t = rotate(this, this._t);
+        this.bus.write(undefined, this._t);
       });
       this.NOP();
     }
@@ -1886,11 +1892,12 @@ export class Nes6502 extends EventHandler {
     }
     if (this.fetch?.addressingMode === this.addressingModes.IMP) {
       this.microCodeStack.push(() => {
-        this.a = rotate(this, this.a) & 0xff;
+        this.a = rotate(this, this.a);
       });
     } else {
       this.microCodeStack.push(() => {
-        this.bus.write(this.bus.addr, rotate(this, this.bus.data) & 0xff);
+        this._t = rotate(this, this._t);
+        this.bus.write(undefined, this._t);
       });
       this.NOP();
     }
@@ -1899,43 +1906,43 @@ export class Nes6502 extends EventHandler {
     // Return from Interrupt
     this.microCodeStack.push(() => {
       this.pc++;
-      this.bus.read(this.pc);
+      this.read(this.pc);
     });
     this.microCodeStack.push(() => {
       this.popStack();
     });
     this.microCodeStack.push(() => {
-      this.status = this.bus.data;
+      this.status = this._t;
       this.popStack();
     });
     this.microCodeStack.push(() => {
-      this.pc = this.bus.data;
+      this.pc = this._t;
       this.popStack();
     });
     this.microCodeStack.push(() => {
-      this.pc |= this.bus.data << 8;
+      this.pc |= this._t << 8;
     });
   }
   RTS() {
     // Return from SubRoutine
+    let temp = 0;
     this.microCodeStack.push(() => {
       this.pc++;
-      this.bus.read(this.pc);
+      this.read(this.pc);
     });
     this.microCodeStack.push(() => {
       this.popStack();
     });
     this.microCodeStack.push(() => {
-      this._t = this.bus.data;
+      temp = this._t;
       this.popStack();
     });
     this.microCodeStack.push(() => {
-      this._t |= this.bus.data << 8;
-      this.bus.read(this.stackPointer);
+      temp |= this._t << 8;
+      this.read(this.stackPointer);
     });
     this.microCodeStack.push(() => {
-      this.pc = this._t;
-      this.pc++;
+      this.pc = temp + 1;
     });
   }
   private _STO(v: number) {
@@ -1943,7 +1950,7 @@ export class Nes6502 extends EventHandler {
     const p = this._getPreviousMicroCode();
     this.microCodeStack.push(() => {
       p();
-      this.bus.write(this.bus.addr, v);
+      this.bus.write(undefined, v);
     });
     this.NOP();
   }
@@ -1981,13 +1988,13 @@ export class Nes6502 extends EventHandler {
   PLA() {
     // Pull Accumulator
     this.microCodeStack.push(() => {
-      this.bus.read(this.pc);
+      this.read(this.pc);
     });
     this.microCodeStack.push(() => {
       this.popStack();
     });
     this.microCodeStack.push(() => {
-      this.a = this.bus.data;
+      this.a = this._t;
       this.testNZFlags(this.a);
     });
   }
@@ -2001,13 +2008,13 @@ export class Nes6502 extends EventHandler {
   PLP() {
     // Pull Processor Status
     this.microCodeStack.push(() => {
-      this.bus.read(this.pc);
+      this.read(this.pc);
     });
     this.microCodeStack.push(() => {
       this.popStack();
     });
     this.microCodeStack.push(() => {
-      this.status = this.bus.data;
+      this.status = this._t;
       this.setFlag(Flags.B, 0);
     });
   }
@@ -2044,18 +2051,20 @@ export class Nes6502 extends EventHandler {
   LAX() {
     this.microCodeStack.push(() => {
       // LDA LDX
-      this.x = this.a = this.bus.data;
+      this.x = this.a = this._t;
       this.testNZFlags(this.a);
     });
   }
   DCP() {
     this.microCodeStack.push(() => {
       // DEC
-      this.bus.write(this.bus.addr, this.bus.data - 1);
+      this._t--;
+      this._t &= 0xff;
+      this.bus.write(undefined, this._t);
 
       // CMP
       const m = this.a;
-      const n = this.bus.data ^ 0xff;
+      const n = this._t ^ 0xff;
       const result = m + n + 1;
       this.setFlag(Flags.C, result & 0x100);
       this.testNZFlags(result);
@@ -2065,14 +2074,16 @@ export class Nes6502 extends EventHandler {
   ISB() {
     // Aka ISC
     this.microCodeStack.push(() => {
-      this.bus.write(this.bus.addr, this.bus.data + 1);
-      this.testNZFlags(this.bus.data);
+      this._t++;
+      this._t &= 0xff; // we need to clamp this so sbc works correctly
+      this.bus.write(undefined, this._t);
+      this.testNZFlags(this._t);
     });
     this.SBC();
   }
   ANC() {
     this.microCodeStack.push(() => {
-      this.a &= this.bus.data;
+      this.a &= this._t;
       this.setFlag(Flags.C, this.a & 0x80);
     });
   }
@@ -2086,7 +2097,7 @@ export class Nes6502 extends EventHandler {
   }
   XAA() {
     this.microCodeStack.push(() => {
-      this.a = this.x & this.bus.data;
+      this.a = this.x & this._t;
       this.testNZFlags(this.a);
     });
   }
@@ -2096,32 +2107,32 @@ export class Nes6502 extends EventHandler {
   }
   AHX() {
     this.microCodeStack.push(() => {
-      this.bus.write(this.bus.addr, this.a & this.x & (this.bus.addr >> 8));
+      this.bus.write(undefined, this.a & this.x & (this.bus.addr >> 8));
     });
     this.NOP();
   }
   SHY() {
     this.microCodeStack.push(() => {
-      this.bus.write(this.bus.addr, this.y & (this.bus.addr >> 8));
+      this.bus.write(undefined, this.y & (this.bus.addr >> 8));
     });
     this.NOP();
   }
   SHX() {
     this.microCodeStack.push(() => {
-      this.bus.write(this.bus.addr, this.x & (this.bus.addr >> 8));
+      this.bus.write(undefined, this.x & (this.bus.addr >> 8));
     });
     this.NOP();
   }
   TAS() {
     this.microCodeStack.push(() => {
       this.stackPointer = this.a & this.x;
-      this.bus.write(this.bus.addr, this.stackPointer & (this.bus.addr >> 8));
+      this.bus.write(undefined, this.stackPointer & (this.bus.addr >> 8));
     });
     this.NOP();
   }
   LAS() {
     this.microCodeStack.push(() => {
-      this.a = this.x = this.stackPointer = this.bus.data & this.stackPointer;
+      this.a = this.x = this.stackPointer = this._t & this.stackPointer;
     });
   }
   STP() {
@@ -2133,6 +2144,7 @@ export class Nes6502 extends EventHandler {
 
   // Interrupts
   reset() {
+    let temp = 0;
     this.microCodeStack.push(() => {
       this.a = 0;
       this.x = 0;
@@ -2140,14 +2152,14 @@ export class Nes6502 extends EventHandler {
       this.stackPointer = 0xfd;
       this.status = 0x24 | Flags.U | Flags.I;
 
-      this.bus.read(0xfffc);
+      this.read(0xfffc);
     });
     this.microCodeStack.push(() => {
-      this._t = this.bus.data;
-      this.bus.read(0xfffd);
+      temp = this._t;
+      this.read(0xfffd);
     });
     this.microCodeStack.push(() => {
-      this.pc = this._t | (this.bus.data << 8);
+      this.pc = temp | (this._t << 8);
     });
   }
   irq() {
@@ -2155,11 +2167,12 @@ export class Nes6502 extends EventHandler {
       return;
     }
 
+    let temp = 0;
     this.microCodeStack.push(() => {
       this.pushStack(this.pc >> 8);
     });
     this.microCodeStack.push(() => {
-      this.pushStack(this.pc & 0xff);
+      this.pushStack(this.pc);
     });
     this.microCodeStack.push(() => {
       this.setFlag(Flags.B, 0);
@@ -2168,23 +2181,24 @@ export class Nes6502 extends EventHandler {
       this.pushStack(this.status);
     });
     this.microCodeStack.push(() => {
-      this.bus.read(0xfffe);
+      this.read(0xfffe);
     });
     this.microCodeStack.push(() => {
-      this._t = this.bus.data;
-      this.bus.read(0xffff);
+      temp = this._t;
+      this.read(0xffff);
     });
     this.microCodeStack.push(() => {
-      this.pc = this._t | (this.bus.data >> 8);
+      this.pc = temp | (this._t >> 8);
     });
   }
   nmi() {
     console.log('NMI! CPU');
+    let temp = 0;
     this.microCodeStack.push(() => {
       this.pushStack(this.pc >> 8);
     });
     this.microCodeStack.push(() => {
-      this.pushStack(this.pc & 0xff);
+      this.pushStack(this.pc);
     });
     this.microCodeStack.push(() => {
       this.setFlag(Flags.B, 0);
@@ -2193,14 +2207,14 @@ export class Nes6502 extends EventHandler {
       this.pushStack(this.status);
     });
     this.microCodeStack.push(() => {
-      this.bus.read(0xfffa);
+      this.read(0xfffa);
     });
     this.microCodeStack.push(() => {
-      this._t = this.bus.data;
-      this.bus.read(0xfffb);
+      temp = this._t;
+      this.read(0xfffb);
     });
     this.microCodeStack.push(() => {
-      this.pc = this._t | (this.bus.data >> 8);
+      this.pc = temp | (this._t >> 8);
     });
   }
 
@@ -2218,10 +2232,10 @@ export class Nes6502 extends EventHandler {
 
       // after every op is done, fetch next instruction.
       if (!this.microCodeStack.length) {
-        this.bus.read(this.pc);
+        this.read(this.pc);
       }
     } else {
-      this.fetch = this.opCodeLookup[this.bus.data];
+      this.fetch = this.opCodeLookup[this._t];
       this.count++;
       this.broadcast('fetch', this.fetch.name);
       this.fetch.addressingMode(this);
@@ -2249,16 +2263,13 @@ export class Nes6502 extends EventHandler {
   }
   public popStack() {
     this.stackPointer++;
-    this.bus.read(0x100 | this.stackPointer);
+    this.read(0x100 | this.stackPointer);
   }
   public testNZFlags(v: number) {
     this.setFlag(Flags.N, v & 0x80);
     this.setFlag(Flags.Z, !(v & 0xff));
   }
-  public absRead() {
-    this.bus.read((this.bus.data << 8) | this._t);
-  }
-  public absWrite(v: number) {
-    this.bus.write((this.bus.data << 8) | this._t, v);
+  public read(addr: number | undefined): void {
+    this._t = this.bus.read(addr);
   }
 }

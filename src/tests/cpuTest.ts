@@ -6,6 +6,7 @@ interface CpuState {
   busAddr: number;
   busData: number;
   cpuFetchName: string;
+  operand: string;
   cpuA: number;
   cpuX: number;
   cpuY: number;
@@ -28,8 +29,9 @@ function getEmulationState(emulator: Emulator): EmulationState {
   return {
     cpuState: {
       busAddr: emulator.bus.addr,
-      busData: emulator.bus.data,
+      busData: emulator.cpu._t,
       cpuFetchName: emulator.cpu.fetch?.name || '',
+      operand: emulator.cpu.addressingModes.operandString,
       cpuA: emulator.cpu.a,
       cpuX: emulator.cpu.x,
       cpuY: emulator.cpu.y,
@@ -51,6 +53,7 @@ function parseLogLine(logLine: string): EmulationState {
       busAddr: parseInt(log.substring(0, 4), 16),
       busData: parseInt(log.substring(6, 8), 16),
       cpuFetchName: log.substring(16, 19).trim(),
+      operand: log.substring(20, 47).trim(),
       cpuA: parseInt(log.substring(50, 52), 16),
       cpuX: parseInt(log.substring(55, 57), 16),
       cpuY: parseInt(log.substring(60, 62), 16),
@@ -81,6 +84,9 @@ function compareCpuState(
   if (state.cpuFetchName !== expectedState.cpuFetchName) {
     return `OP expected: ${expectedState.cpuFetchName} | got: ${state.cpuFetchName}`;
   }
+  if (state.operand !== expectedState.operand) {
+    // return `OPERAND expected: ${expectedState.operand} | got: ${state.operand}`;
+  }
   if (state.cpuA !== expectedState.cpuA) {
     return `A expected: ${expectedState.cpuA.toString(
       16
@@ -110,6 +116,21 @@ function compareCpuState(
     return `CYC expected: ${expectedState.cpuCycle} | got: ${state.cpuCycle}`;
   }
   return null;
+}
+
+function getLogReportLine(log: EmulationState): string {
+  let txtLog = '';
+  txtLog += `${log.cpuState.busAddr.toString(16).padStart(4, '0')}  `;
+  txtLog += `${log.cpuState.busData.toString(16).padStart(2, '0')}  `;
+  txtLog += `${log.cpuState.cpuFetchName.padStart(3, ' ')} `;
+  txtLog += `${log.cpuState.operand.padEnd(27, ' ')} `;
+  txtLog += `A:${log.cpuState.cpuA.toString(16).padStart(2, '0')} `;
+  txtLog += `X:${log.cpuState.cpuX.toString(16).padStart(2, '0')} `;
+  txtLog += `Y:${log.cpuState.cpuY.toString(16).padStart(2, '0')} `;
+  txtLog += `P:${log.cpuState.cpuStatus.toString(16).padStart(2, '0')} `;
+  txtLog += `SP:${log.cpuState.cpuStackPointer.toString(16).padStart(2, '0')} `;
+  txtLog += `CYC:${log.cpuState.cpuCycle} `;
+  return txtLog;
 }
 
 // other compare functions for PPU state and overall emulation for future tests with more detailed logging
@@ -169,16 +190,32 @@ export async function cpuTest(): Promise<boolean> {
       emulator.cpu.microCodeStack.push(() => {
         emulator.cpu.pc = 0xc000;
       });
+      const log: EmulationState[] = [];
+      let previousState: EmulationState | null = null;
       emulator.cpu.on('fetch', () => {
         const state = getEmulationState(emulator);
+        if (!previousState) {
+          previousState = state;
+          return;
+        }
+        // operand is 1 fetch cycle behind, so we copy it from the current state and compare the previous state with the expected state from the log
+        previousState.cpuState.operand = state.cpuState.operand;
+        log.push(previousState);
+        if (log.length > 100) {
+          log.shift();
+        }
         const expectedState = parseLogLine(targetLog[logLineIndex]);
         logLineIndex++;
 
         const comparisonResult = compareCpuState(
-          state.cpuState,
+          previousState.cpuState,
           expectedState.cpuState
         );
         if (comparisonResult) {
+          const reportlog = log
+            .map(entry => getLogReportLine(entry))
+            .join('\n');
+          console.log('Emulation log:\n' + reportlog);
           console.error(
             `Mismatch at line ${logLineIndex}: ${comparisonResult}`
           );
@@ -191,6 +228,7 @@ export async function cpuTest(): Promise<boolean> {
           resolve(true);
           emulator.stop();
         }
+        previousState = state;
       });
       // Start the emulator
       emulator.start();
