@@ -143,6 +143,7 @@ export class PPU extends EventHandler implements BusHandler {
   ) {
     super(logger);
     this._ioBus = ioBus;
+    ioBus.attach(this);
     this._graphicsBus = graphicsBus;
     this._controlFlags = new PPUCTRLFlags(0);
     this._maskFlags = new PPUMASKFlags(0);
@@ -521,7 +522,9 @@ export class PPU extends EventHandler implements BusHandler {
     switch (subCycle) {
       case 0:
         // Fetch nametable entry
-        this._nametableByte = this._graphicsBus.read(0x2000 | (this._V & 0x0fff));
+        this._nametableByte = this._graphicsBus.read(
+          0x2000 | (this._V & 0x0fff)
+        );
         break;
       case 1:
         break;

@@ -1,6 +1,6 @@
 {
-	"version": "2.0.0",
-	"tasks": [
+  "version": "2.0.0",
+  "tasks": [
     {
       "label": "Watch Express Server",
       "type": "shell",
@@ -11,8 +11,37 @@
         "panel": "shared"
       },
       "runOptions": {
-        "runOn": "folderOpen" 
+        "runOn": "folderOpen"
       }
+    },
+    {
+      "label": "Build All NES ROMs",
+      "type": "shell",
+      "command": "make",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "Clean All ROMs",
+      "type": "shell",
+      "command": "make clean"
+    },
+    {
+      "label": "Build Specific ROM",
+      "type": "shell",
+      "command": "make build-${input:romName}"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "romName",
+      "type": "promptString",
+      "description": "Name of the ROM folder to build (e.g. rom1)"
     }
   ]
 }

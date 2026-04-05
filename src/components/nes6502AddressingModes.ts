@@ -11,15 +11,12 @@ export class Nes6502AddressingModes {
     return this;
   }
 
-  public operandString = ''; // For logging purposes, the string representation of the operand for the current instruction.
-
   NUL() {} // Dummy Instruction/Adressing mode.
   IMP(cpu: Nes6502) {
     // Implied
     cpu.microCodeStack.push(() => {
       cpu._t = cpu.a;
       cpu.pc++;
-      cpu.addressingModes.operandString = '';
     });
   }
   IMM(cpu: Nes6502) {
@@ -28,8 +25,6 @@ export class Nes6502AddressingModes {
     cpu.microCodeStack.push(() => {
       cpu.pc++;
       cpu.read(cpu.pc);
-      cpu.addressingModes.operandString =
-        '#$' + cpu._t.toString(16).padStart(2, '0').toUpperCase();
       cpu.pc++;
     });
   }
@@ -39,13 +34,9 @@ export class Nes6502AddressingModes {
     cpu.microCodeStack.push(() => {
       cpu.pc++;
       cpu.read(cpu.pc);
-      cpu.addressingModes.operandString =
-        '$' + cpu._t.toString(16).padStart(2, '0').toUpperCase();
     });
     cpu.microCodeStack.push(() => {
       cpu.read(cpu._t);
-      cpu.addressingModes.operandString +=
-        ' = ' + cpu._t.toString(16).padStart(2, '0').toUpperCase();
       cpu.pc++;
     });
   }
@@ -63,8 +54,11 @@ export class Nes6502AddressingModes {
     cpu.microCodeStack.push(() => {
       cpu.pc++;
       cpu._t += reg;
+      cpu._t &= 0xff;
     });
-    cpu.microCodeStack.push(() => cpu.read(cpu._t & 0xff));
+    cpu.microCodeStack.push(() => {
+      cpu.read(cpu._t);
+    });
   }
   private _ZPIRW(cpu: Nes6502, reg: number) {
     Nes6502AddressingModes.instance._ZPI(cpu, reg);
@@ -97,8 +91,6 @@ export class Nes6502AddressingModes {
       cpu._t = (cpu._t << 8) | lo;
     });
     cpu.microCodeStack.push(() => {
-      this.operandString =
-        '$' + cpu._t.toString(16).padStart(4, '0').toUpperCase();
       cpu.read(cpu._t);
     });
   }
@@ -161,7 +153,7 @@ export class Nes6502AddressingModes {
         cpu.read(hi | (lo & 0xff));
         cpu.pc++;
         cpu.microCodeStack.unshift(() => {
-          cpu.bus.write(hi + lo, cpu._t & 0xff);
+          cpu.bus.write(hi + lo, cpu._t);
         });
       });
       return;
@@ -171,7 +163,9 @@ export class Nes6502AddressingModes {
       const hi = cpu._t & 0xff00;
       cpu.read(hi | (lo & 0xff));
       if (lo > 0xff) {
-        cpu.microCodeStack.unshift(() => cpu.read(hi + lo));
+        cpu.microCodeStack.unshift(() => {
+          cpu.read(hi + lo);
+        });
       }
       cpu.pc++;
     });
@@ -242,8 +236,6 @@ export class Nes6502AddressingModes {
     cpu.microCodeStack.push(() => {
       cpu.pc++;
       cpu.read(cpu.pc); // read operand
-      cpu.addressingModes.operandString =
-        '($' + cpu._t.toString(16).padStart(2, '0').toUpperCase() + ',X)';
     });
     cpu.microCodeStack.push(() => {
       temp = (cpu._t + cpu.x) & 0xff; // add x to operand with zero page wraparound
@@ -251,10 +243,6 @@ export class Nes6502AddressingModes {
     });
     cpu.microCodeStack.push(() => {
       cpu.read(temp); // read lo byte from zero page + x
-      cpu.addressingModes.operandString += ` @ ${temp
-        .toString(16)
-        .padStart(2, '0')
-        .toUpperCase()}`;
       cpu.pc++;
     });
     cpu.microCodeStack.push(() => {
@@ -263,16 +251,7 @@ export class Nes6502AddressingModes {
     });
     cpu.microCodeStack.push(() => {
       const effectiveAddr = (cpu._t << 8) | temp;
-      const padding = effectiveAddr > 0xff ? 4 : 2;
-      cpu.addressingModes.operandString += ` = ${((cpu._t << 8) | temp)
-        .toString(16)
-        .padStart(padding, '0')
-        .toUpperCase()}`;
       cpu.read(effectiveAddr); // read from effective address
-      cpu.addressingModes.operandString += ` = ${cpu._t
-        .toString(16)
-        .padStart(2, '0')
-        .toUpperCase()}`;
     });
   }
   IZXRW(cpu: Nes6502) {
@@ -348,10 +327,6 @@ export class Nes6502AddressingModes {
     cpu.microCodeStack.push(() => {
       cpu.pc++;
       cpu.read(cpu.pc); // read operand
-      cpu.addressingModes.operandString = `($${cpu._t
-        .toString(16)
-        .padStart(2, '0')
-        .toUpperCase()},Y)`;
     });
     cpu.microCodeStack.push(() => {
       cpu.pc++;
@@ -366,15 +341,6 @@ export class Nes6502AddressingModes {
       const lo = temp;
       const effectiveAddr = hi + lo;
       cpu.read(effectiveAddr); // read from effective address
-      const padding = effectiveAddr > 0xff ? 4 : 2;
-      cpu.addressingModes.operandString += ` = ${effectiveAddr
-        .toString(16)
-        .padStart(padding, '0')
-        .toUpperCase()}`;
-      cpu.addressingModes.operandString += ` = ${cpu._t
-        .toString(16)
-        .padStart(2, '0')
-        .toUpperCase()}`;
     });
     cpu.microCodeStack.push(() => {
       cpu.read(undefined);

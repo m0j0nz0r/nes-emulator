@@ -34,7 +34,9 @@
     "posttest": "npm run lint",
     "watch": "npm-watch build",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "build:roms": "cd test-roms && make -j",
+    "clean:roms": "cd test-roms && make clean"
   },
   "repository": {
     "type": "git",

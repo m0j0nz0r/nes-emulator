@@ -6,7 +6,6 @@ interface CpuState {
   busAddr: number;
   busData: number;
   cpuFetchName: string;
-  operand: string;
   cpuA: number;
   cpuX: number;
   cpuY: number;
@@ -31,7 +30,6 @@ function getEmulationState(emulator: Emulator): EmulationState {
       busAddr: emulator.bus.addr,
       busData: emulator.cpu._t,
       cpuFetchName: emulator.cpu.fetch?.name || '',
-      operand: emulator.cpu.addressingModes.operandString,
       cpuA: emulator.cpu.a,
       cpuX: emulator.cpu.x,
       cpuY: emulator.cpu.y,
@@ -53,7 +51,6 @@ function parseLogLine(logLine: string): EmulationState {
       busAddr: parseInt(log.substring(0, 4), 16),
       busData: parseInt(log.substring(6, 8), 16),
       cpuFetchName: log.substring(16, 19).trim(),
-      operand: log.substring(20, 47).trim(),
       cpuA: parseInt(log.substring(50, 52), 16),
       cpuX: parseInt(log.substring(55, 57), 16),
       cpuY: parseInt(log.substring(60, 62), 16),
@@ -83,9 +80,6 @@ function compareCpuState(
   }
   if (state.cpuFetchName !== expectedState.cpuFetchName) {
     return `OP expected: ${expectedState.cpuFetchName} | got: ${state.cpuFetchName}`;
-  }
-  if (state.operand !== expectedState.operand) {
-    // return `OPERAND expected: ${expectedState.operand} | got: ${state.operand}`;
   }
   if (state.cpuA !== expectedState.cpuA) {
     return `A expected: ${expectedState.cpuA.toString(
@@ -123,7 +117,6 @@ function getLogReportLine(log: EmulationState): string {
   txtLog += `${log.cpuState.busAddr.toString(16).padStart(4, '0')}  `;
   txtLog += `${log.cpuState.busData.toString(16).padStart(2, '0')}  `;
   txtLog += `${log.cpuState.cpuFetchName.padStart(3, ' ')} `;
-  txtLog += `${log.cpuState.operand.padEnd(27, ' ')} `;
   txtLog += `A:${log.cpuState.cpuA.toString(16).padStart(2, '0')} `;
   txtLog += `X:${log.cpuState.cpuX.toString(16).padStart(2, '0')} `;
   txtLog += `Y:${log.cpuState.cpuY.toString(16).padStart(2, '0')} `;
@@ -191,16 +184,10 @@ export async function cpuTest(): Promise<boolean> {
         emulator.cpu.pc = 0xc000;
       });
       const log: EmulationState[] = [];
-      let previousState: EmulationState | null = null;
       emulator.cpu.on('fetch', () => {
         const state = getEmulationState(emulator);
-        if (!previousState) {
-          previousState = state;
-          return;
-        }
         // operand is 1 fetch cycle behind, so we copy it from the current state and compare the previous state with the expected state from the log
-        previousState.cpuState.operand = state.cpuState.operand;
-        log.push(previousState);
+        log.push(state);
         if (log.length > 100) {
           log.shift();
         }
@@ -208,7 +195,7 @@ export async function cpuTest(): Promise<boolean> {
         logLineIndex++;
 
         const comparisonResult = compareCpuState(
-          previousState.cpuState,
+          state.cpuState,
           expectedState.cpuState
         );
         if (comparisonResult) {
@@ -228,7 +215,6 @@ export async function cpuTest(): Promise<boolean> {
           resolve(true);
           emulator.stop();
         }
-        previousState = state;
       });
       // Start the emulator
       emulator.start();

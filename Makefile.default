@@ -1,0 +1,33 @@
+# Makefile.default - Default build rules for simple cc65 NES ROMs
+# Used when a test-rom folder does not have its own Makefile
+
+TARGET  ?= game
+CONFIG  ?= nes.cfg
+INCLUDE ?=
+
+CA65FLAGS := -g -t nes $(INCLUDE)
+LD65FLAGS := -C $(CONFIG) -Ln $(TARGET).lbl -m $(TARGET).map --dbgfile $(TARGET).dbg
+
+# Sources: look in current dir + src/ subfolder
+SOURCES := $(wildcard *.s src/*.s)
+OBJECTS := $(patsubst %.s,%.o,$(SOURCES))
+
+.PHONY: all clean
+
+all: $(TARGET).nes
+
+%.o: %.s
+	ca65 $(CA65FLAGS) $< -o $@
+
+$(TARGET).nes: $(OBJECTS)
+	ld65 -C nes.cfg -o $@ $^ \
+		-Ln $(TARGET).lbl -m $(TARGET).map --dbgfile $(TARGET).dbg
+
+crt0.o: crt0.s
+	ca65 $(CA65FLAGS) $< -o $@
+
+clean:
+	rm -f *.o src/*.o *.nes *.map *.lbl *.dbg
+
+run: all
+	mesen $(TARGET).nes

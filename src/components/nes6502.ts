@@ -1533,16 +1533,17 @@ export class Nes6502 extends EventHandler {
     // Generic branch
     this.microCodeStack.push(() => {
       this.pc++;
+      const hi = this.pc & 0xff00;
+      const lo = (this.pc & 0xff) + this._t;
+      const clo = lo & 0xff;
+      const effectiveAddr = hi | clo;
       if (shouldBranch) {
-        const hi = this.pc & 0xff00;
-        const lo = (this.pc & 0xff) + this._t;
-
         // +1 cycle if branch crosses page boundary
-        if (lo > 0xff && !(lo & 0xff)) {
+        if (lo > 0xff && !clo) {
           this.microCodeStack.unshift(() => (this.pc = hi + lo));
         }
         // +1 cycle if branch taken
-        this.microCodeStack.unshift(() => (this.pc = hi | (lo & 0xff)));
+        this.microCodeStack.unshift(() => (this.pc = effectiveAddr));
       }
     });
   }
@@ -1558,10 +1559,11 @@ export class Nes6502 extends EventHandler {
     // Branch on overfow clear (V = 0)
     this.microCodeStack.push(() => {
       this.pc++;
+      const effectiveAddr = this.pc + this._t;
       if (this.getFlag(Flags.V) === 0) {
-        const hi = this.pc & 0xff00;
-        const lo = (this.pc & 0xff) + this._t;
-        this.microCodeStack.push(() => (this.pc = hi + lo));
+        this.microCodeStack.push(() => {
+          this.pc = effectiveAddr;
+        });
         // BVC always takes 3 cycles if branch is taken.
       }
     });
@@ -1752,8 +1754,6 @@ export class Nes6502 extends EventHandler {
     this.microCodeStack.push(() => {
       // cycle 6
       this.pc = (this._t << 8) | (temp & 0xff);
-      this.addressingModes.operandString =
-        '$' + this.pc.toString(16).toUpperCase().padStart(4, '0');
     });
   }
   LDA() {
@@ -1947,10 +1947,9 @@ export class Nes6502 extends EventHandler {
   }
   private _STO(v: number) {
     // Generic store value to current addr
-    const p = this._getPreviousMicroCode();
+    this._getPreviousMicroCode();
     this.microCodeStack.push(() => {
-      p();
-      this.bus.write(undefined, v);
+      this.bus.write(this._t, v);
     });
     this.NOP();
   }
