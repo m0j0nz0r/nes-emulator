@@ -45,36 +45,38 @@ class Flags7 {
 }
 
 export class Headers {
-  constructor(buffer: Buffer) {
+  constructor(buffer: Uint8Array) {
     let byte = 0;
-    this.idString = buffer.toString('utf8', 0, 4);
-    this._prgRomSizeLo = buffer.readUint8(4);
-    this._chrRomSizeLo = buffer.readUint8(5);
-    this.flags6 = new Flags6(buffer.readUint8(6));
-    this.flags7 = new Flags7(buffer.readUint8(7));
-    byte = buffer.readUint8(8);
+    this.idString = buffer
+      .subarray(0, 4)
+      .reduce((s, b) => s + String.fromCharCode(b), '');
+    this._prgRomSizeLo = buffer[4];
+    this._chrRomSizeLo = buffer[5];
+    this.flags6 = new Flags6(buffer[6]);
+    this.flags7 = new Flags7(buffer[7]);
+    byte = buffer[8];
     this.mapperNumberHi = byte & 0xf; // take lo nybble
     this.subMapperNumber = byte >> 4; // take hi nybble
 
-    byte = buffer.readUint8(9);
+    byte = buffer[9];
     this._prgRomSizeHi = byte & 0xf;
     this._chrRomSizeHi = byte >> 4;
 
-    byte = buffer.readUint8(10);
+    byte = buffer[10];
     this.prgRamShift = byte & 0xf;
     this.prgNvRamShift = byte >> 4;
 
-    byte = buffer.readUint8(11);
+    byte = buffer[11];
     this.chrRamShift = byte & 0xf;
     this.chrNvRamShift = byte >> 4;
 
-    this.cpuTiming = buffer.readUint8(12) & 0x3;
+    this.cpuTiming = buffer[12] & 0x3;
 
     // Not sure how to implement this yet.
     // byte = buffer.readUint8(13);
 
-    this.MiscRoms = buffer.readUint8(14) & 0x3;
-    this.defaultExpansionDevice = buffer.readUint8(15) & 0x3f;
+    this.MiscRoms = buffer[14] & 0x3;
+    this.defaultExpansionDevice = buffer[15] & 0x3f;
   }
   idString: string;
   private _prgRomSizeLo: number;

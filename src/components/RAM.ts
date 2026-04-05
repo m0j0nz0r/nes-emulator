@@ -5,7 +5,7 @@ const addrRange = {minAddr: 0x0000, maxAddr: 0x1fff};
 export class RAM implements BusHandler {
   constructor(
     bus: Bus,
-    ram: number[] | Buffer = [],
+    ram: number[] | Uint8Array = [],
     range = addrRange,
     mirroring = 0x7ff
   ) {
@@ -16,7 +16,7 @@ export class RAM implements BusHandler {
     this._mirroring = mirroring;
   }
   private _bus: Bus;
-  private _ram: number[] | Buffer;
+  private _ram: number[] | Uint8Array;
   private _range: {minAddr: number; maxAddr: number};
   private _mirroring: number;
   public get addressRange(): AddressRange {

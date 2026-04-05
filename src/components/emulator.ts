@@ -1,4 +1,4 @@
-import * as NanoTimer from 'nanotimer';
+import NanoTimer from 'nanotimer';
 import {Bus} from './bus';
 import {RAM} from './RAM';
 import {Nes6502} from './nes6502';
@@ -8,7 +8,7 @@ import {EventHandler, Logger} from './eventHandler';
 import {defaultPaletteData} from '../palettes/defaultPalette';
 
 export class Emulator extends EventHandler {
-  constructor(paletteData: Buffer = defaultPaletteData, logger?: Logger) {
+  constructor(paletteData: Uint8Array = defaultPaletteData, logger?: Logger) {
     super(logger);
     this.bus = new Bus();
     this._graphicBus = new Bus();
@@ -67,7 +67,6 @@ export class Emulator extends EventHandler {
         if (this.ppu.nmi) {
           this.cpu.nmi();
           this.ppu.nmi = false;
-          console.log('NMI! Emulator');
         }
       }
     } catch (e) {
@@ -77,8 +76,8 @@ export class Emulator extends EventHandler {
       });
     }
   }
-  public loadCartridge(rom: Buffer) {
-    this._cartridge?.load(rom);
+  public loadCartridge(rom: Uint8Array) {
+    this._cartridge.load(rom);
   }
   public reset() {
     this.stop();

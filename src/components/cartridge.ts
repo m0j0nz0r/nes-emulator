@@ -15,7 +15,7 @@ export class Cartridge {
   public miscRom?: RAM;
 
   private _headers?: Headers;
-  public load(rom: Buffer) {
+  public load(rom: Uint8Array) {
     let offset = 16;
     this._headers = new Headers(rom);
     const hasTrainer = this._headers.flags6.hasTrainer;

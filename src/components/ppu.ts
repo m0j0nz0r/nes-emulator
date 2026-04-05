@@ -138,7 +138,7 @@ export class PPU extends EventHandler implements BusHandler {
   constructor(
     ioBus: Bus,
     graphicsBus: Bus,
-    paletteData: Buffer,
+    paletteData: Uint8Array,
     logger?: Logger
   ) {
     super(logger);
@@ -177,7 +177,7 @@ export class PPU extends EventHandler implements BusHandler {
     return this._screen;
   }
   private _screen = new Uint8ClampedArray(256 * 240 * 4); // RGBA for each pixel
-  private _palette: Buffer;
+  private _palette: Uint8Array;
   public scanLine = -1;
   public cycle = 0;
   private _isEvenFrame = true;
@@ -549,7 +549,8 @@ export class PPU extends EventHandler implements BusHandler {
         break;
       case 6:
         // Fetch high-order byte of pattern table
-        this._patternHi = this._graphicsBus.read(bgPatternTableAddress | 0x0008) << 8;
+        this._patternHi =
+          this._graphicsBus.read(bgPatternTableAddress | 0x0008) << 8;
         break;
       case 7:
         break;
@@ -578,7 +579,7 @@ export class PPU extends EventHandler implements BusHandler {
       this._screen[pixelIndex + 3] = 255; // A
     }
   }
-  public loadPalette(paletteData: Buffer) {
+  public loadPalette(paletteData: Uint8Array) {
     this._palette = paletteData;
   }
 }
