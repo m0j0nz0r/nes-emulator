@@ -69,6 +69,14 @@ export class Bus {
       }
     }
   }
+  latch(addr?: number, data?: number): void {
+    if (addr !== undefined) {
+      this._addr = addr & 0xffff;
+    }
+    if (data !== undefined) {
+      this._data = data & 0xff;
+    }
+  }
   attach(handler: BusHandler): void {
     this._handlers.push(handler);
   }

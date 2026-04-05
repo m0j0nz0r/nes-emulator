@@ -1,2 +1,6 @@
 node_modules
 build
+test-roms/*.o
+test-roms/*.dbg
+test-roms/*.map
+test-roms/*.lbl

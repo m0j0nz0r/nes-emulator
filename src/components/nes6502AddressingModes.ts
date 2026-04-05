@@ -91,13 +91,13 @@ export class Nes6502AddressingModes {
       cpu._t = (cpu._t << 8) | lo;
     });
     cpu.microCodeStack.push(() => {
-      cpu.read(cpu._t);
+      cpu.bus.latch(cpu._t);
     });
   }
   ABSRW(cpu: Nes6502) {
     Nes6502AddressingModes.instance.ABS(cpu);
     cpu.microCodeStack.push(() => {
-      cpu.bus.write(undefined, cpu._t);
+      cpu.bus.latch(undefined, cpu.bus.read(undefined));
     });
   }
   REL(cpu: Nes6502) {
