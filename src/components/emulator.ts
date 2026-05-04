@@ -1,4 +1,4 @@
-import NanoTimer from 'nanotimer';
+import NanoTimer = require('nanotimer');
 import {Bus} from './bus';
 import {RAM} from './RAM';
 import {Nes6502} from './nes6502';

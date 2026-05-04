@@ -1,4 +1,4 @@
-import {AddressRange, Bus, BusHandler, ReadFlagState} from './bus';
+import {AddressRange, Bus, BusHandler} from './bus';
 
 const addrRange = {minAddr: 0x0000, maxAddr: 0x1fff};
 

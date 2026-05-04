@@ -33,7 +33,7 @@ function logInstruction(
       .toString(2)
       .padStart(8, '0')} cycle: ${ppu.cycle} scanline: ${ppu.scanLine}`
   );
-  ppu.broadcast('operation', {register, addr, data, rwFlag});
+  ppu.broadcast('operation', {operation, register, addr, data, rwFlag});
 }
 
 class PPUCTRLFlags {
@@ -195,6 +195,18 @@ export class PPU extends EventHandler implements BusHandler {
   private set _V(value: number) {
     this._v = value & 0x7fff;
   }
+  private get _coarseX(): number {
+    return this._V & 0x1f;
+  }
+  private get _coarseY(): number {
+    return (this._V & 0x03e0) >> 5;
+  }
+  private get _nametableSelect(): number {
+    return (this._V & 0x0c00) >> 10;
+  }
+  private get _fineY(): number {
+    return (this._V & 0x7000) >> 12;
+  }
 
   private _t = 0; // temporary VRAM address (15 bits)
   private get _T(): number {
@@ -275,7 +287,7 @@ export class PPU extends EventHandler implements BusHandler {
            * t: Z...... ........ <- 0 (bit Z is cleared)
            * w:                  <- 1
            */
-          this._T = (this._T & 0b0111111_11111111) | ((data & 0b111111) << 8);
+          this._T = (this._T & 0b0000000_11111111) | ((data & 0b111111) << 8);
           this._W = 1;
         } else {
           /**
@@ -295,14 +307,14 @@ export class PPU extends EventHandler implements BusHandler {
         if (this.isRendering()) {
           // TODO weird glitchy behavior during rendering
         } else {
-          this._graphicsBus.write(this._V, data & 0xff);
+          this._graphicsBus.write(this._V, data);
           this._V += this._controlFlags.incrementMode;
-          this._V &= 0x3fff;
         }
         instruction = 'PPUDATA';
         break;
       case PPURegisters.OAMDMA:
         instruction = 'OAMDMA';
+        // eslint-disable-next-line no-case-declarations
         const baseAddr = (data & 0xff) << 8;
         for (let i = 0; i < 256; i++) {
           this._OAM.write(this._OAMADDR + i, this._ioBus.read(baseAddr + i));
@@ -383,6 +395,7 @@ export class PPU extends EventHandler implements BusHandler {
       this._oddFrameCycleSkip();
     }
 
+    // should I be doing this when bg is disabled?
     this._evaluateBackground();
   }
 
@@ -460,12 +473,10 @@ export class PPU extends EventHandler implements BusHandler {
   }
 
   private _updateCycleCounters() {
-    this.cycle += 1;
+    this.cycle++;
     if (this.cycle > maxPixel) {
       this.cycle = 0;
-    }
-    if (this.cycle === 0) {
-      this.scanLine += 1;
+      this.scanLine++;
       if (this.scanLine > maxScanline) {
         this.scanLine = 0;
         this._isEvenFrame = !this._isEvenFrame;
@@ -478,16 +489,11 @@ export class PPU extends EventHandler implements BusHandler {
   private _nametableByte = 0;
   private _attributeByte = 0;
   private _patternLo = 0;
+  private _patternLoTemp = 0;
   private _patternHi = 0;
+  private _patternHiTemp = 0;
   private _currentAttributeBits = 0;
   private _evaluateBackground(): void {
-    /**
-     * Fetch a nametable entry from $2000-$2FFF.
-     * Fetch the corresponding attribute table entry from $23C0-$2FFF and increment the current VRAM address within the same row.
-     * Fetch the low-order byte of an 8x1 pixel sliver of pattern table from $0000-$0FF7 or $1000-$1FF7.
-     * Fetch the high-order byte of this sliver from an address 8 byFtes higher.
-     * Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
-     */
     const isVisibleCycle = this.cycle >= 1 && this.cycle <= 256;
     const isPreRenderCycle = this.cycle >= 321 && this.cycle <= 336;
     if (!isVisibleCycle && !isPreRenderCycle) {
@@ -514,54 +520,84 @@ export class PPU extends EventHandler implements BusHandler {
   }
 
   private _doBgFetch() {
-    const bgPatternTableAddress =
-      this._controlFlags.bgTileSelect |
-      (this._nametableByte << 4) |
-      ((this._V >> 12) & 0x7);
+    /**
+     * Fetch a nametable entry from $2000-$2FFF.
+     * Fetch the corresponding attribute table entry from $23C0-$2FFF and increment the current VRAM address within the same row.
+     * Fetch the low-order byte of an 8x1 pixel sliver of pattern table from $0000-$0FF7 or $1000-$1FF7.
+     * Fetch the high-order byte of this sliver from an address 8 byFtes higher.
+     * Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
+     */
+
     const subCycle = (this.cycle - 1) % 8;
     switch (subCycle) {
       case 0:
-        // Fetch nametable entry
+        // Fetch tile id from nametable
         this._nametableByte = this._graphicsBus.read(
-          0x2000 | (this._V & 0x0fff)
+          this._controlFlags.nametableSelect | (this._V & 0x0fff)
         );
         break;
       case 1:
         break;
       case 2:
         // Fetch attribute table entry
+        // The attribute table starts at an offset of $03C0 from the base of each nametable.
+        // The PPU calculates the address by repurposing the coarse scroll bits from the v register,
+        // effectively shrinking the 32x30 tile grid into a 8x8 attribute grid (where each byte covers a 4x4 tile area).
+        // fedc ba 9876 543 210
+        // 0010 NN 1111 YYY XXX
+        // NN = nametable select (from PPUCTRL)
+        // YYY = (coarse Y) >> 2
+        // XXX = (coarse X) >> 2
         this._attributeByte = this._graphicsBus.read(
-          0x23c0 |
-            (this._V & 0x0c00) |
-            ((this._V >> 4) & 0x0038) |
-            ((this._V >> 2) & 0x0007)
+          0x2000 |
+            (this._nametableSelect << 10) |
+            0b001111000000 |
+            ((this._coarseY & 0b11100) << 1) |
+            (this._coarseX >> 2)
         );
         break;
       case 3:
-        this._currentAttributeBits = this._getAttributeBits();
         break;
       case 4:
         // Fetch low-order byte of pattern table
-        this._patternLo = this._graphicsBus.read(bgPatternTableAddress) << 8;
+        this._patternLoTemp =
+          this._graphicsBus.read(
+            this._controlFlags.bgTileSelect |
+              (this._nametableByte << 4) |
+              this._fineY
+          ) << 8;
         break;
       case 5:
         // Fetch palette data
         break;
       case 6:
         // Fetch high-order byte of pattern table
-        this._patternHi =
-          this._graphicsBus.read(bgPatternTableAddress | 0x0008) << 8;
+        this._patternHiTemp =
+          this._graphicsBus.read(
+            this._controlFlags.bgTileSelect |
+              (this._nametableByte << 4) |
+              8 | // high byte is 8 bytes after low byte
+              this._fineY
+          ) << 8;
         break;
       case 7:
+        // On every 8th dot in these background fetch regions (the same dot on which the coarse x component of v is incremented),
+        // the pattern and attributes data are transferred into registers used for producing pixel data.
+        // For the pattern data, these transfers are into the high 8 bits of two 16-bit shift registers.
+        this._patternHi = (this._patternHiTemp << 8) | (this._patternHi & 0xff);
+        this._patternLo = (this._patternLoTemp << 8) | (this._patternLo & 0xff);
+
+        // For the attributes data, only 2 bits are transferred and into two 1-bit latches that feed 8-bit shift registers.
+        // we don't need to implement the latches and shift registers for attributes since we can just store the 2 bits directly and use them during rendering
+        this._currentAttributeBits = this._getAttributeBits();
         break;
     }
   }
 
   private _doBgRender() {
-    const patternBitHi = (this._patternHi >> this._X) & 0x1;
-    const patternBitLo = (this._patternLo >> this._X) & 0x1;
-    const patternIndex = (patternBitHi << 1) | patternBitLo;
-    const bgPaletteIndex =
+    const patternIndex =
+      ((this._patternHi & 0x1) << 1) | (this._patternLo & 0x1);
+    const paletteIndex =
       ((this._currentAttributeBits << 2) | patternIndex) & 0x0f;
 
     this._patternLo >>= 1;
@@ -569,7 +605,9 @@ export class PPU extends EventHandler implements BusHandler {
 
     if (this.isVisibleScanline) {
       const pixelIndex = (this.scanLine * 256 + this.cycle - 1) * 4;
-      const colorOffset = bgPaletteIndex * 3;
+
+      // If paletteIndex is 0, the pixel is transparent and should show the background color
+      const colorOffset = (paletteIndex || this._graphicsBus.read(0x3f00)) * 3;
       // this._screen[pixelIndex] = (this._cycle + this.frameCounter) & 0xff; // R
       // this._screen[pixelIndex + 1] = (this._scanline + this.frameCounter) & 0xff; // G
       // this._screen[pixelIndex + 2] = bgPaletteIndex * 16; // B
@@ -578,8 +616,5 @@ export class PPU extends EventHandler implements BusHandler {
       this._screen[pixelIndex + 2] = this._palette[colorOffset + 2]; // B
       this._screen[pixelIndex + 3] = 255; // A
     }
-  }
-  public loadPalette(paletteData: Uint8Array) {
-    this._palette = paletteData;
   }
 }

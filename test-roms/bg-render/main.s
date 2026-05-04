@@ -19,9 +19,9 @@ main:
   jsr wait_vblank
 
   ; Set background color to blue
-  lda #$3F
+  lda #$3F ; $3Fxx
   sta $2006
-  lda #$00
+  lda #$00 ; $3F00
   sta $2006
   lda #$11        ; Blue color
   sta $2007

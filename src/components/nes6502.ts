@@ -13,12 +13,48 @@ enum Flags {
   N = 1 << 7, // negative
 }
 
+type Operation = () => void;
 interface Instruction {
   name: string;
-  operation: () => void;
+  operation: Operation;
   addressingMode: (cpu: Nes6502) => void;
 }
 
+class Nes6502OperationStack {
+  private _stack: Operation[] = Array(8).fill(null);
+  private _pointer = 0;
+  private get pointer() {
+    return this._pointer;
+  }
+  private set pointer(value: number) {
+    this._pointer = value & 7;
+  }
+  private _first = 0;
+  private get first(): number {
+    return this._first;
+  }
+  private set first(value: number) {
+    this._first = value & 7;
+  }
+  push(operation: Operation) {
+    this._stack[this.pointer] = operation;
+    this.pointer++;
+  }
+  pop(): Operation {
+    this.pointer--;
+    return this._stack[this.pointer];
+  }
+  shift(): Operation {
+    return this._stack[this.first++];
+  }
+  unshift(operation: Operation): void {
+    this.first--;
+    this._stack[this.first] = operation;
+  }
+  get isEmpty(): boolean {
+    return this.pointer === this.first;
+  }
+}
 export class Nes6502 extends EventHandler {
   constructor(bus: Bus, logger?: Logger) {
     super(logger);
@@ -1437,7 +1473,7 @@ export class Nes6502 extends EventHandler {
   set status(v: number) {
     this._p = (v & 0xff) | Flags.U;
   }
-  microCodeStack: (() => void)[] = []; // currently executing micro code
+  microCodeStack = new Nes6502OperationStack(); // currently executing micro code
   opCodeLookup: Instruction[];
 
   // Operations
@@ -2205,7 +2241,6 @@ export class Nes6502 extends EventHandler {
   }
   nmi() {
     console.log('NMI! CPU');
-    let temp = 0;
     this.microCodeStack.push(() => {
       this.pushStack(this.pc >> 8);
     });
@@ -2222,11 +2257,10 @@ export class Nes6502 extends EventHandler {
       this.read(0xfffa);
     });
     this.microCodeStack.push(() => {
-      temp = this._t;
-      this.read(0xfffb);
+      this._t |= this.bus.read(0xfffb) << 8;
     });
     this.microCodeStack.push(() => {
-      this.pc = temp | (this._t >> 8);
+      this.pc = this._t;
     });
   }
 
@@ -2237,13 +2271,13 @@ export class Nes6502 extends EventHandler {
     // if stack is empty, current data should be an op
     // each item in the stack is 1 cycle
     this.cycle++;
-    if (this.microCodeStack.length) {
+    if (!this.microCodeStack.isEmpty) {
       const microCode = this.microCodeStack.shift();
       // we check for falsy, although this should never happen.
       microCode && microCode();
 
       // after every op is done, fetch next instruction.
-      if (!this.microCodeStack.length) {
+      if (this.microCodeStack.isEmpty) {
         this.read(this.pc);
       }
     } else {

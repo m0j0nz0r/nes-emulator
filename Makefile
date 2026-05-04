@@ -7,8 +7,6 @@
 TEST_ROMS_DIR := test-roms
 EMU := nestopia                     # Change to fceux, nestopia, etc. if preferred
 NES_LIB_DIR := ../nes-lib           # Common library for ROMs (if needed)
-# Default target name inside each ROM folder (you can override per ROM)
-DEFAULT_TARGET := game
 
 # Common include path for all ROMs (if needed)
 COMMON_INCLUDE := -I ../../$(NES_LIB_DIR)
@@ -27,13 +25,14 @@ build:
 	@echo "=== Building all NES test ROMs ==="
 	@for dir in $(ROM_DIRS); do \
 		echo "→ Building $$dir"; \
+		dirname=$$(basename "$$dir"); \
 		if [ -f "$$dir/Makefile" ]; then \
 			echo "   (using custom Makefile)"; \
 			$(MAKE) -C "$$dir" --no-print-directory; \
 		else \
 			echo "   (using default rules)"; \
 			$(MAKE) -C "$$dir" -f ../../Makefile.default \
-				TARGET=$(DEFAULT_TARGET) \
+				TARGET=$$dirname \
 				INCLUDE="$(COMMON_INCLUDE)" \
 				--no-print-directory; \
 		fi; \
@@ -53,11 +52,11 @@ clean:
 
 run: build
 	@echo "Running last built ROM (change logic if needed)"
-	# Example: run the first ROM
-	@if [ -f "$(word 1,$(ROM_DIRS))/$(DEFAULT_TARGET).nes" ]; then \
-		$(EMU) "$(word 1,$(ROM_DIRS))/$(DEFAULT_TARGET).nes"; \
+	@dirname=$$(basename "$(word 1,$(ROM_DIRS))"); \
+	if [ -f "$(word 1,$(ROM_DIRS))$$dirname.nes" ]; then \
+		$(EMU) "$(word 1,$(ROM_DIRS))$$dirname.nes"; \
 	else \
-		echo "No ROM found to run."; \
+		echo "No ROM found: $(word 1,$(ROM_DIRS))$$dirname.nes"; \
 	fi
 
 # Optional: build a specific ROM by name
@@ -68,7 +67,7 @@ build-%:
 		if [ -f "$$dir/Makefile" ]; then \
 			$(MAKE) -C "$$dir"; \
 		else \
-			$(MAKE) -C "$$dir" -f ../../Makefile.default TARGET=$(DEFAULT_TARGET) INCLUDE="$(COMMON_INCLUDE)"; \
+			$(MAKE) -C "$$dir" -f ../../Makefile.default TARGET=$* INCLUDE="$(COMMON_INCLUDE)"; \
 		fi; \
 	else \
 		echo "ROM folder $* not found!"; \
