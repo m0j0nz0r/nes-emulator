@@ -23,13 +23,41 @@ main:
   sta $2006
   lda #$00 ; $3F00
   sta $2006
-  lda #$11        ; Blue color
+
+  lda #$11 ; Blue color index
   sta $2007
 
-  ; Clear nametable (fill with empty tile)
+  ldx #$01
+load_palettes:
+  txa
+  sta $2007
+  inx
+  cpx #$10
+  bne load_palettes
+
+  ; Set name table entry to use tile #1
+  ; Set PPU address to $2000 (Name Table 0)
+  lda #$21
+  sta $2006
+  lda #$D0
+  sta $2006
+  lda #$01        ; Use tile #1
+  sta $2007
+
+  ; Reset scroll position
+  bit $2002
+  lda #$00
+  sta $2006
+  sta $2006
+  sta $2005
+  sta $2005
+
   ; Turn on background rendering
   lda #%00001000      ; Background only
   sta $2001
+
+  ; Clear VBlank flag
+  bit $2002
 
   lda #%10000000      ; Enable NMI
   sta $2000
