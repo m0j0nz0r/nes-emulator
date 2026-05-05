@@ -176,7 +176,7 @@ export async function cpuTest(): Promise<boolean> {
       let logLineIndex = 0;
 
       // Set up emulator and event listeners
-      emulator.loadCartridge(rom);
+      emulator.loadCartridge(new Uint8Array(rom));
 
       // The reset sequence would have the cpu look for the reset vector at 0xfffc, but we want to skip that and set the PC to 0xc000 directly to start executing the test code.
       emulator.cpu.microCodeStack.shift();

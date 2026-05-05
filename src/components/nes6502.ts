@@ -21,38 +21,41 @@ interface Instruction {
 }
 
 class Nes6502OperationStack {
-  private _stack: Operation[] = Array(8).fill(null);
-  private _pointer = 0;
-  private get pointer() {
-    return this._pointer;
+  private _stackSize = 0xf;
+  private _stack: Operation[] = Array(this._stackSize + 1).fill(null);
+  private _last = 0;
+  get last() {
+    return this._last;
   }
-  private set pointer(value: number) {
-    this._pointer = value & 7;
+  private set last(value: number) {
+    this._last = value & this._stackSize;
   }
   private _first = 0;
-  private get first(): number {
+  get first(): number {
     return this._first;
   }
   private set first(value: number) {
-    this._first = value & 7;
+    this._first = value & this._stackSize;
   }
   push(operation: Operation) {
-    this._stack[this.pointer] = operation;
-    this.pointer++;
+    this._stack[this.last] = operation;
+    this.last++;
   }
   pop(): Operation {
-    this.pointer--;
-    return this._stack[this.pointer];
+    this.last--;
+    return this._stack[this.last];
   }
   shift(): Operation {
-    return this._stack[this.first++];
+    const operation = this._stack[this.first];
+    this.first++;
+    return operation;
   }
   unshift(operation: Operation): void {
-    this.first--;
+    this._first--;
     this._stack[this.first] = operation;
   }
   get isEmpty(): boolean {
-    return this.pointer === this.first;
+    return this.last === this.first;
   }
 }
 export class Nes6502 extends EventHandler {
@@ -1433,8 +1436,11 @@ export class Nes6502 extends EventHandler {
   public _t = 0; // temporary private register to store bytes between cycles
   public fetch?: Instruction;
   public addressingModes: Nes6502AddressingModes; // Add addressingModes property
-  private _getPreviousMicroCode() {
-    return this.microCodeStack.pop() || (() => {});
+  private _getPreviousMicroCode(): Operation | null {
+    if (this.microCodeStack.isEmpty) {
+      return null;
+    }
+    return this.microCodeStack.pop();
   }
 
   private _a = 0x0; // accumulator register
@@ -1747,7 +1753,7 @@ export class Nes6502 extends EventHandler {
     // Jump
     const p = this._getPreviousMicroCode();
     this.microCodeStack.push(() => {
-      p();
+      p && p();
       this.pc = this.bus.addr;
     });
   }
@@ -1989,9 +1995,9 @@ export class Nes6502 extends EventHandler {
   }
   private _STO(v: number) {
     // Generic store value to current addr
-    const previousMicroCode = this._getPreviousMicroCode();
+    const p = this._getPreviousMicroCode();
     this.microCodeStack.push(() => {
-      previousMicroCode();
+      p && p();
       this.bus.write(undefined, v);
     });
     this.NOP();
@@ -2272,9 +2278,7 @@ export class Nes6502 extends EventHandler {
     // each item in the stack is 1 cycle
     this.cycle++;
     if (!this.microCodeStack.isEmpty) {
-      const microCode = this.microCodeStack.shift();
-      // we check for falsy, although this should never happen.
-      microCode && microCode();
+      this.microCodeStack.shift()();
 
       // after every op is done, fetch next instruction.
       if (this.microCodeStack.isEmpty) {
@@ -2287,9 +2291,7 @@ export class Nes6502 extends EventHandler {
       this.fetch.addressingMode(this);
       this.fetch.operation.call(this);
 
-      const microCode = this.microCodeStack.shift();
-      // we check for falsy, although this should never happen.
-      microCode && microCode();
+      this.microCodeStack.shift()();
     }
   }
   public count = 0;

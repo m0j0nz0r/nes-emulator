@@ -79,11 +79,13 @@ export class Emulator extends EventHandler {
   public loadCartridge(rom: Uint8Array) {
     this._cartridge.load(rom);
   }
+
   public reset() {
     this.stop();
     this.cpu.reset();
     this.cycle = 0;
   }
+
   private _setupEventListeners() {
     this.cpu.on('fetch', event => {
       this.broadcast('cpu:fetch', event);
